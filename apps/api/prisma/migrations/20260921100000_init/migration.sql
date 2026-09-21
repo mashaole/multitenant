@@ -170,7 +170,15 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO pulse_app
 GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO pulse_app;
 ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO pulse_app;
 
--- RLS
+-- RLS: fail-closed. Policies read session GUCs only — never role names
+-- (no SUPER_ADMIN / MANAGER / MEMBER / custom role in SQL).
+--   app.current_org_id   = JWT org
+--   app.current_user_id  = JWT sub
+--   app.is_org_reader    = 'true' when the JWT permission set intersects
+--     { summary:read, activity:read, users:create, users:delete,
+--       orgs:update, orgs:create, modules:manage }
+-- MEMBER stays user-scoped. MANAGER and SUPER_ADMIN are readers via those keys.
+-- Cross-org create/list/modules uses the privileged owner client, not these policies.
 ALTER TABLE "organizations" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE "organizations" FORCE ROW LEVEL SECURITY;
 ALTER TABLE "org_modules" ENABLE ROW LEVEL SECURITY;

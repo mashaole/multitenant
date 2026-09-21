@@ -9,6 +9,7 @@ export interface TenantScope {
 
 export type TenantTx = Prisma.TransactionClient;
 
+/** One tx: set org/user/reader GUCs, then run work. RLS reads these, not role names. */
 export async function withTenant<T>(
   prisma: AppPrismaService,
   scope: TenantScope,
