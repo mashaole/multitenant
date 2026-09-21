@@ -1,9 +1,9 @@
+/** Session GUC `app.is_org_reader` — SQL policies never name SUPER_ADMIN/MANAGER. */
 export const ORG_READER_PERMS = new Set([
   'summary:read',
   'activity:read',
   'users:create',
   'users:delete',
-  'roles:assign',
   'orgs:update',
   'orgs:create',
   'modules:manage',
@@ -11,6 +11,10 @@ export const ORG_READER_PERMS = new Set([
 
 export function isOrgReader(permissions: string[]): boolean {
   return permissions.some((p) => ORG_READER_PERMS.has(p));
+}
+
+export function canManageTenants(permissions: string[]): boolean {
+  return permissions.includes('orgs:create');
 }
 
 export function assertPermissionSubset(actor: string[], target: string[]): boolean {

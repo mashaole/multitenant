@@ -10,11 +10,9 @@ const PERMS: Array<{ key: string; domain: string; description: string }> = [
   { key: 'summary:read', domain: 'summary', description: 'Read weekly summary' },
   { key: 'roles:create', domain: 'access', description: 'Create roles' },
   { key: 'roles:read', domain: 'access', description: 'Read roles' },
-  { key: 'roles:assign', domain: 'access', description: 'Assign roles' },
   { key: 'users:create', domain: 'admin', description: 'Create users' },
   { key: 'users:delete', domain: 'admin', description: 'Soft-delete users' },
   { key: 'orgs:create', domain: 'admin', description: 'Create organizations' },
-  { key: 'orgs:read', domain: 'admin', description: 'Read organizations' },
   { key: 'orgs:update', domain: 'admin', description: 'Update org settings' },
   { key: 'modules:manage', domain: 'admin', description: 'Grant org modules' },
   { key: 'activity:read', domain: 'activity', description: 'Read activity' },
@@ -83,22 +81,6 @@ async function main(): Promise<void> {
   });
   await prisma.role.create({
     data: {
-      id: IDS.role.admin,
-      name: 'ADMIN',
-      isSystem: true,
-      perms: {
-        create: keys([
-          'orgs:read',
-          'users:create',
-          'users:delete',
-          'roles:read',
-          'roles:assign',
-        ]),
-      },
-    },
-  });
-  await prisma.role.create({
-    data: {
       id: IDS.role.manager,
       name: 'MANAGER',
       isSystem: true,
@@ -110,7 +92,6 @@ async function main(): Promise<void> {
           'activity:read',
           'roles:create',
           'roles:read',
-          'roles:assign',
           'users:create',
           'users:delete',
           'orgs:update',
@@ -138,7 +119,6 @@ async function main(): Promise<void> {
 
   const users = [
     { id: IDS.user.ava, orgId: IDS.org.system, roleId: IDS.role.superAdmin, name: 'Ava Stone', email: 'ava@pulse.local' },
-    { id: IDS.user.ben, orgId: IDS.org.system, roleId: IDS.role.admin, name: 'Ben Holt', email: 'ben@pulse.local' },
     { id: IDS.user.maya, orgId: IDS.org.northwind, roleId: IDS.role.manager, name: 'Maya Chen', email: 'maya@northwind.local' },
     { id: IDS.user.liam, orgId: IDS.org.northwind, roleId: IDS.role.member, name: 'Liam Park', email: 'liam@northwind.local' },
     { id: IDS.user.nora, orgId: IDS.org.northwind, roleId: IDS.role.member, name: 'Nora Vale', email: 'nora@northwind.local' },

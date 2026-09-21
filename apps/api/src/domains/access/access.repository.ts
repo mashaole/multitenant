@@ -7,7 +7,15 @@ export interface IAccessRepository {
   listRoles(
     tx: TenantTx,
     orgId: string,
-  ): Promise<Array<{ id: string; name: string; isSystem: boolean; orgId: string | null }>>;
+  ): Promise<
+    Array<{
+      id: string;
+      name: string;
+      isSystem: boolean;
+      orgId: string | null;
+      perms: Array<{ permission: { key: string } }>;
+    }>
+  >;
   findPermissionsByKeys(keys: string[]): Promise<Array<{ id: string; key: string }>>;
   createRole(
     tx: TenantTx,

@@ -16,8 +16,11 @@ export class AccessService {
     @Inject(ACTIVITY_EMITTER) private readonly activity: IActivityEmitter,
   ) {}
 
-  async listPermissions() {
-    const rows = await this.repo.listPermissions();
+  async listPermissions(actorKeys: string[]) {
+    const allowed = new Set(actorKeys);
+    const rows = (await this.repo.listPermissions()).filter((row) =>
+      allowed.has(row.key),
+    );
     const grouped: Record<string, typeof rows> = {};
     for (const row of rows) {
       grouped[row.domain] = grouped[row.domain] ?? [];
@@ -26,12 +29,20 @@ export class AccessService {
     return grouped;
   }
 
-  listRoles(auth: TokenClaims) {
-    return withTenant(
+  async listRoles(auth: TokenClaims) {
+    const roles = await withTenant(
       this.appPrisma,
       { orgId: auth.orgId, userId: auth.sub, isOrgReader: isOrgReader(auth.permissions) },
       (tx) => this.repo.listRoles(tx, auth.orgId),
     );
+    return roles
+      .filter((role) =>
+        assertPermissionSubset(
+          auth.permissions,
+          role.perms.map((p) => p.permission.key),
+        ),
+      )
+      .map(({ perms, ...role }) => role);
   }
 
   async createRole(auth: TokenClaims, name: string, permissionKeys: string[]) {

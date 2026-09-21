@@ -14,7 +14,13 @@ export class AccessPrismaRepository implements IAccessRepository {
   listRoles(tx: TenantTx, orgId: string) {
     return tx.role.findMany({
       where: { OR: [{ orgId: null }, { orgId }] },
-      select: { id: true, name: true, isSystem: true, orgId: true },
+      select: {
+        id: true,
+        name: true,
+        isSystem: true,
+        orgId: true,
+        perms: { select: { permission: { select: { key: true } } } },
+      },
       orderBy: { name: 'asc' },
     });
   }

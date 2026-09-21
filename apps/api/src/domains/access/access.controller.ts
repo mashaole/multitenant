@@ -10,8 +10,8 @@ export class AccessController {
   constructor(private readonly access: AccessService) {}
 
   @Get('permissions')
-  listPermissions() {
-    return this.access.listPermissions();
+  listPermissions(@CurrentAuth() auth: TokenClaims) {
+    return this.access.listPermissions(auth.permissions);
   }
 
   @Get('roles')

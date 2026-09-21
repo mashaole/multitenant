@@ -10,7 +10,7 @@ export class AdminController {
   constructor(private readonly admin: AdminService) {}
 
   @Get('orgs')
-  @RequiresPermission('orgs:read')
+  @RequiresPermission('orgs:create')
   listOrgs() {
     return this.admin.listOrgs();
   }

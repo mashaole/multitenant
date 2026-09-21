@@ -2,7 +2,7 @@ import { Inject, Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../shared/prisma/prisma.service';
 import { TokenClaims } from '../../shared/ports/token-signer.port';
-import { assertPermissionSubset } from '../../shared/access-control/permissions';
+import { assertPermissionSubset, canManageTenants } from '../../shared/access-control/permissions';
 import { AppError, ERROR_CODES } from '../../shared/http/error-codes';
 import { ACTIVITY_EMITTER, IActivityEmitter } from '../../shared/ports/activity.port';
 import { CLOCK, IClock } from '../../shared/ports/clock.port';
@@ -77,7 +77,7 @@ export class AdminService {
   }
 
   async patchSettings(auth: TokenClaims, orgId: string, maxSessionsPerUser: number) {
-    if (!auth.permissions.includes('orgs:create') && auth.orgId !== orgId) {
+    if (!canManageTenants(auth.permissions) && auth.orgId !== orgId) {
       throw new AppError(ERROR_CODES.FORBIDDEN_PERMISSION, 'You can only update your own organization', 403);
     }
     const org = await this.prisma.organization.findUnique({ where: { id: orgId } });
@@ -127,7 +127,7 @@ export class AdminService {
     input: { name: string; email: string; roleId: string; orgId?: string },
   ) {
     const orgId = input.orgId ?? auth.orgId;
-    if (!auth.permissions.includes('orgs:create') && orgId !== auth.orgId) {
+    if (!canManageTenants(auth.permissions) && orgId !== auth.orgId) {
       throw new AppError(ERROR_CODES.FORBIDDEN_PERMISSION, 'You can only add users to your organization', 403);
     }
     const role = await this.prisma.role.findUnique({
@@ -176,7 +176,7 @@ export class AdminService {
     if (!existing) {
       throw new AppError(ERROR_CODES.NOT_FOUND, 'User not found', 404);
     }
-    if (!auth.permissions.includes('orgs:create') && existing.orgId !== auth.orgId) {
+    if (!canManageTenants(auth.permissions) && existing.orgId !== auth.orgId) {
       throw new AppError(ERROR_CODES.NOT_FOUND, 'User not found', 404);
     }
     if (existing.deletedAt) {
@@ -204,7 +204,7 @@ export class AdminService {
   }
 
   listUsers(auth: TokenClaims) {
-    const where = auth.permissions.includes('orgs:create')
+    const where = canManageTenants(auth.permissions)
       ? { deletedAt: null }
       : { deletedAt: null, orgId: auth.orgId };
     return this.prisma.user.findMany({
