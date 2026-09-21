@@ -16,8 +16,8 @@ flowchart LR
     WAF[WAF]
     ALB[ALB]
   end
-  subgraph compute [Compute]
-    API[ECS API produce]
+  subgraph compute [ECS Fargate]
+    API[API produce]
     ActW[Activity worker consume]
     DigW[Digest worker consume]
   end
