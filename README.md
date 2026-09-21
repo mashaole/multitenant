@@ -30,9 +30,8 @@ Pick a user on `/login`. Default session cap is **1** per org (a second login as
 
 | Name | Role | Org | Notes |
 |---|---|---|---|
-| Ava Stone | SUPER_ADMIN | System | Create orgs, grant modules |
-| Ben Holt | ADMIN | System | Add managers to orgs |
-| Maya Chen | MANAGER | Northwind Retail | Surveys, summary, roles, settings |
+| Ava Stone | SUPER_ADMIN | System | Create orgs, grant modules, add managers |
+| Maya Chen | MANAGER | Northwind Retail | Surveys, summary, roles, people (including managers) |
 | Liam Park | MEMBER | Northwind Retail | Submit pulse |
 | Nora Vale | MEMBER | Northwind Retail | Submit pulse |
 | Jordan Reed | Team Lead | Northwind Retail | Custom role with `summary:read` |
@@ -49,7 +48,7 @@ Pick a user on `/login`. Default session cap is **1** per org (a second login as
 5. As Maya → `/activity` filter by group.
 6. As Maya → `/settings` raise session cap.
 7. Log in as Liam twice — first JWT is revoked (cap 1 until you raise it).
-8. Log in as Ava → `/admin/orgs` create an org and toggle modules.
+8. Log in as Ava → `/orgs` create an org and toggle modules.
 
 ## Scripts
 
@@ -68,5 +67,5 @@ Import `postman/pulse.postman_collection.json` with `postman/local.postman_envir
 - [SPEC.md](SPEC.md) — contract
 - [SOLUTION.md](SOLUTION.md) — decisions, AWS note, AI workflow
 - [docs/architecture.md](docs/architecture.md)
-- [docs/flows.md](docs/flows.md)
+- [docs/flows.md](docs/flows.md) — sequence + AWS system design (Mermaid renders as diagrams on GitHub)
 - [AGENTS.md](AGENTS.md) — agent constraints

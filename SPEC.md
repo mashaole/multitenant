@@ -6,18 +6,17 @@ Frozen before implementation. Code follows this contract.
 
 | Actor | Org | Typical permissions |
 |---|---|---|
-| SUPER_ADMIN | System | all |
-| ADMIN | System | orgs:read, users:create/delete, roles:read/assign |
-| MANAGER | Tenant | surveys, summary, activity, roles, users:create/delete, orgs:update |
+| SUPER_ADMIN | System | all — create orgs, grant modules, add managers |
+| MANAGER | Tenant | surveys, summary, activity, roles, users:create/delete (including other managers), orgs:update |
 | MEMBER | Tenant | responses:submit, surveys:read |
-| Custom role | Tenant | subset of the system catalog |
+| Custom role | Tenant | subset of the actor's permissions |
 
 A user belongs to exactly one organization.
 
 ## Invariants
 
 1. Data from one organization is never visible to another (app `orgId` + RLS).
-2. A member cannot read another member's responses, answers, sessions, or activity (`userId` + RLS). SUPER_ADMIN / ADMIN / MANAGER are not blocked: `is_org_reader` is true when their permission set intersects `{ summary:read, activity:read, users:create, users:delete, roles:assign, orgs:update, orgs:create, modules:manage }`.
+2. A member cannot read another member's responses, answers, sessions, or activity (`userId` + RLS). SUPER_ADMIN / MANAGER are not blocked: `is_org_reader` is true when their permission set intersects `{ summary:read, activity:read, users:create, users:delete, orgs:update, orgs:create, modules:manage }`.
 3. One response per member per survey per ISO week (Monday start). Unique `(surveyId, userId, weekStart)`.
 4. At most three questions per survey. Types: `RATING` (1–5) and `YES_NO`.
 5. Users are soft-deleted (`deletedAt`). Responses and activity keep `userId`.
@@ -46,10 +45,11 @@ Protected (token then permission):
 | GET | /roles | roles:read |
 | POST | /roles | roles:create |
 | POST | /orgs | orgs:create |
-| GET | /orgs | orgs:read |
+| GET | /orgs | orgs:create |
 | PUT | /orgs/:id/modules | modules:manage |
 | PATCH | /orgs/:id/settings | orgs:update |
 | POST | /users | users:create |
+| GET | /users | users:create |
 | DELETE | /users/:id | users:delete |
 | GET | /surveys/active | surveys:read |
 | POST | /surveys | surveys:create |
@@ -74,7 +74,7 @@ Protected (token then permission):
 
 ## Seed
 
-- System org: super admin, admin, cap 1.
+- System org: super admin, cap 1.
 - Org A (Northwind Retail): manager, 2 members, custom role Team Lead (`summary:read`), all modules, cap 1.
 - Org B (Apex Mining): manager, 2 members, **no summary module**, cap 1.
 - One active survey per tenant org plus sample current-week responses.

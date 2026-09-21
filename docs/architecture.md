@@ -25,11 +25,13 @@ controller → service → repository port → Prisma adapter
 
 ## Isolation
 
-1. App: Prisma extension injects `orgId`.
-2. RLS: `org_id = current_org` on every tenant table.
-3. User-owned tables also require `user_id = current_user` unless `is_org_reader` (derived from permissions, not role names).
+1. App: tenant queries add `orgId` from the JWT.
+2. RLS (SQL): org match on every tenant table. User-owned tables (sessions, responses, answers, activity) also require `user_id = current_user` **or** `app.is_org_reader = true`.
+3. Policies never mention role names. `withTenant` sets three transaction-local GUCs: `app.current_org_id`, `app.current_user_id`, `app.is_org_reader`. Dropping ADMIN did not change SQL.
 
-Cross-tenant admin uses the privileged client and permission middleware.
+`is_org_reader` is computed in the app from permissions (`ORG_READER_PERMS`). MANAGER qualifies via `summary:read` / `users:create` / `orgs:update`. SUPER_ADMIN qualifies via `orgs:create`. MEMBER does not. Custom roles become readers only if they are granted one of those keys.
+
+Cross-tenant org create / list / module grant uses the privileged client (bypasses RLS) plus `orgs:create` / `modules:manage`. That path never asked RLS to see every org at once.
 
 ## Extraction recipe
 
@@ -38,4 +40,4 @@ Cross-tenant admin uses the privileged client and permission middleware.
 3. Replace in-process calls with a client behind the same port.
 4. Promote `src/shared` to `packages/shared` when a second service appears.
 
-Do not add a broker until traffic requires it.
+Local: no broker — `IActivityEmitter` drains in-process. AWS design: the same port produces to SQS; workers consume activity writes and weekly email digests. See [flows.md](flows.md).

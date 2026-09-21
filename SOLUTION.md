@@ -10,7 +10,7 @@ Hybrid: application `orgId` (JWT + Prisma extension) and PostgreSQL RLS on `puls
 
 - Org policy on every tenant table: `org_id = current_org` (fail-closed if unset).
 - User policy on responses, answers, sessions, activity: org match and (`user_id = current_user` or `is_org_reader`).
-- `is_org_reader` is derived from permissions so SUPER_ADMIN, ADMIN, and MANAGER are not blocked from summary, user delete, or session revoke.
+- `is_org_reader` is derived from permissions so SUPER_ADMIN and MANAGER are not blocked from summary, user delete, or session revoke.
 - Cross-tenant admin uses the privileged client.
 
 ## Auth
@@ -42,11 +42,56 @@ Services depend on `ILogger`, `ITokenSigner`, `ITokenHasher`, `IClock`, `IActivi
 
 ## AWS (design only)
 
-- API: ECS Fargate behind an ALB.
-- Database: RDS PostgreSQL Multi-AZ.
-- Web: S3 + CloudFront.
-- Org logos: browser uploads with a **pre-signed S3 PUT**. The API only signs; it never proxies bytes. Reads use CloudFront signed URLs. That keeps backend bandwidth and cost down and keeps objects off the public internet.
-- First hardening: OIDC, Secrets Manager, WAF, JWT signer via KMS/RS256, read replicas for summary/activity.
+Local stays a modular monolith: activity is an in-process `setImmediate` queue. On AWS the same `IActivityEmitter` port publishes to **SQS**. Workers consume. The HTTP request still returns after commit; it does not wait for persist or email.
+
+```mermaid
+flowchart TB
+  Browser[Browser]
+  CF[CloudFront]
+  S3Web[S3 web assets]
+  S3Logo[S3 org logos]
+  WAF[WAF]
+  ALB[ALB]
+  API[ECS API]
+  Worker[ECS workers]
+  RDS[(RDS Postgres Multi-AZ)]
+  Replica[(Read replica)]
+  SQS[SQS activity and digest]
+  SES[SES email]
+  SM[Secrets Manager]
+  KMS[KMS JWT sign]
+
+  Browser --> CF
+  CF --> S3Web
+  Browser -->|presigned PUT| S3Logo
+  CF -->|signed GET logos| S3Logo
+  Browser --> WAF --> ALB --> API
+  API --> RDS
+  API --> SM
+  API --> KMS
+  API -->|produce after commit| SQS
+  SQS -->|consume| Worker
+  Worker --> RDS
+  Worker --> SES
+  Worker --> Replica
+```
+
+| Piece | Choice | Why |
+|---|---|---|
+| Web | S3 + CloudFront | Static Vite build; no origin compute |
+| API | ECS Fargate + ALB | Same Nest process as local; scale tasks, not a rewrite |
+| DB | RDS PostgreSQL Multi-AZ | ACID + RLS stay the source of truth |
+| Logos | Presigned S3 PUT, CloudFront signed GET | API signs only; never proxies bytes |
+| Async | SQS + ECS workers | Replaces in-process drain; survives API crash |
+| Mail | SES | Weekly pulse reminder and activity digest |
+| Secrets | Secrets Manager + KMS RS256 | No long-lived HS256 in task env |
+
+**Produce / consume (design).** After `withTenant` commits, the API produces a small allowlisted message `{ orgId, userId, group, action, entityType, entityId, name }` to SQS. It does **not** await the worker. Two consumers:
+
+1. **Activity writer** — insert `ActivityLog` on the privileged client (same allowlist as today). Idempotent on `(orgId, userId, action, entityId)` or a message `id`.
+2. **Digest / email** — EventBridge weekly rule (Monday after ISO week close) or a `digest.requested` message. Worker reads the replica, builds a per-manager completion digest, sends via SES. No secrets or raw answers in the mail.
+
+Transactional outbox is the next hardening if we must not drop a produce after commit. First hardening around the edge: OIDC, WAF, KMS signer, read replicas for summary and digest. Full picture also lives in [docs/flows.md](docs/flows.md).
 
 ## Threat model (STRIDE-lite)
 
