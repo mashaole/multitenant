@@ -1,0 +1,197 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum QuestionType {
+  RATING
+  YES_NO
+}
+
+model Organization {
+  id                  String   @id @default(uuid()) @db.Uuid
+  name                String
+  isSystem            Boolean  @default(false)
+  maxSessionsPerUser  Int      @default(1)
+  createdAt           DateTime @default(now())
+
+  users       User[]
+  roles       Role[]
+  orgModules  OrgModule[]
+  surveys     Survey[]
+  sessions    Session[]
+  responses   Response[]
+  answers     Answer[]
+  questions   Question[]
+  activity    ActivityLog[]
+
+  @@map("organizations")
+}
+
+model Module {
+  id         String      @id @default(uuid()) @db.Uuid
+  key        String      @unique
+  name       String
+  orgModules OrgModule[]
+
+  @@map("modules")
+}
+
+model OrgModule {
+  orgId    String @db.Uuid
+  moduleId String @db.Uuid
+  org      Organization @relation(fields: [orgId], references: [id])
+  module   Module       @relation(fields: [moduleId], references: [id])
+
+  @@id([orgId, moduleId])
+  @@map("org_modules")
+}
+
+model Permission {
+  id          String           @id @default(uuid()) @db.Uuid
+  key         String           @unique
+  domain      String
+  description String
+  roles       RolePermission[]
+
+  @@map("permissions")
+}
+
+model Role {
+  id        String           @id @default(uuid()) @db.Uuid
+  orgId     String?          @db.Uuid
+  name      String
+  isSystem  Boolean          @default(false)
+  org       Organization?    @relation(fields: [orgId], references: [id])
+  users     User[]
+  perms     RolePermission[]
+
+  @@unique([orgId, name])
+  @@map("roles")
+}
+
+model RolePermission {
+  roleId       String @db.Uuid
+  permissionId String @db.Uuid
+  role         Role       @relation(fields: [roleId], references: [id])
+  permission   Permission @relation(fields: [permissionId], references: [id])
+
+  @@id([roleId, permissionId])
+  @@map("role_permissions")
+}
+
+model User {
+  id         String    @id @default(uuid()) @db.Uuid
+  orgId      String    @db.Uuid
+  roleId     String    @db.Uuid
+  name       String
+  email      String
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  updatedBy  String?   @db.Uuid
+  lastLogin  DateTime?
+  deletedAt  DateTime?
+  org        Organization @relation(fields: [orgId], references: [id])
+  role       Role         @relation(fields: [roleId], references: [id])
+  sessions   Session[]
+  responses  Response[]
+  activity   ActivityLog[]
+
+  @@index([orgId])
+  @@map("users")
+}
+
+model Session {
+  id        String    @id @db.Uuid
+  userId    String    @db.Uuid
+  orgId     String    @db.Uuid
+  tokenHash String    @unique
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime  @default(now())
+  user      User         @relation(fields: [userId], references: [id])
+  org       Organization @relation(fields: [orgId], references: [id])
+
+  @@index([userId, revokedAt])
+  @@index([orgId])
+  @@map("sessions")
+}
+
+model Survey {
+  id        String   @id @default(uuid()) @db.Uuid
+  orgId     String   @db.Uuid
+  title     String
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  org       Organization @relation(fields: [orgId], references: [id])
+  questions Question[]
+  responses Response[]
+
+  @@index([orgId, isActive])
+  @@map("surveys")
+}
+
+model Question {
+  id       String       @id @default(uuid()) @db.Uuid
+  orgId    String       @db.Uuid
+  surveyId String       @db.Uuid
+  text     String
+  type     QuestionType
+  position Int
+  org      Organization @relation(fields: [orgId], references: [id])
+  survey   Survey       @relation(fields: [surveyId], references: [id], onDelete: Cascade)
+  answers  Answer[]
+
+  @@map("questions")
+}
+
+model Response {
+  id        String   @id @default(uuid()) @db.Uuid
+  orgId     String   @db.Uuid
+  surveyId  String   @db.Uuid
+  userId    String   @db.Uuid
+  weekStart DateTime @db.Date
+  createdAt DateTime @default(now())
+  org       Organization @relation(fields: [orgId], references: [id])
+  survey    Survey       @relation(fields: [surveyId], references: [id])
+  user      User         @relation(fields: [userId], references: [id])
+  answers   Answer[]
+
+  @@unique([surveyId, userId, weekStart])
+  @@index([surveyId, weekStart])
+  @@index([orgId])
+  @@map("responses")
+}
+
+model Answer {
+  id          String   @id @default(uuid()) @db.Uuid
+  orgId       String   @db.Uuid
+  responseId  String   @db.Uuid
+  questionId  String   @db.Uuid
+  ratingValue Int?
+  yesNoValue  Boolean?
+  org         Organization @relation(fields: [orgId], references: [id])
+  response    Response     @relation(fields: [responseId], references: [id], onDelete: Cascade)
+  question    Question     @relation(fields: [questionId], references: [id])
+
+  @@map("answers")
+}
+
+model ActivityLog {
+  id        String   @id @default(uuid()) @db.Uuid
+  orgId     String   @db.Uuid
+  userId    String   @db.Uuid
+  group     String
+  action    String
+  metadata  Json
+  createdAt DateTime @default(now())
+  org       Organization @relation(fields: [orgId], references: [id])
+  user      User         @relation(fields: [userId], references: [id])
+
+  @@index([orgId, group, createdAt])
+  @@map("activity_logs")
+}

@@ -17,7 +17,11 @@ docker compose up -d --wait
 
 echo "==> Generating Prisma client and applying migrations"
 npm run prisma:generate -w api
-npm run prisma:migrate -w api -- --name init --skip-seed || npm run prisma:migrate:deploy -w api
+npm run prisma:migrate:deploy -w api
+
+echo "==> Granting pulse_app on pulse_test"
+docker compose exec -T postgres psql -U pulse -d postgres -c \
+  "GRANT CONNECT ON DATABASE pulse_test TO pulse_app;" || true
 
 echo "==> Seeding"
 npm run prisma:seed -w api
