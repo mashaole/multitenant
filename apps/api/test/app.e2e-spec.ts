@@ -127,6 +127,27 @@ describe('pulse api (e2e)', () => {
     expect(res.body.error.code).toBe('FORBIDDEN_PERMISSION');
   });
 
+  it('manager can add another manager and does not see SUPER_ADMIN', async () => {
+    const token = await login(IDS.user.maya);
+    const roles = await request(app.getHttpServer())
+      .get('/roles')
+      .set('Authorization', `Bearer ${token}`)
+      .expect(200);
+    const names = (roles.body as Array<{ name: string }>).map((r) => r.name);
+    expect(names).toContain('MANAGER');
+    expect(names).not.toContain('SUPER_ADMIN');
+    const created = await request(app.getHttpServer())
+      .post('/users')
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        name: 'Riley Chen',
+        email: `riley-${Date.now()}@northwind.local`,
+        roleId: IDS.role.manager,
+      })
+      .expect(201);
+    expect(created.body.roleId).toBe(IDS.role.manager);
+  });
+
   it('second login revokes first at cap 1', async () => {
     const first = await login(IDS.user.owen);
     await login(IDS.user.owen);

@@ -1,4 +1,4 @@
-import { assertPermissionSubset, isOrgReader } from './permissions';
+import { assertPermissionSubset, canManageTenants, isOrgReader } from './permissions';
 
 describe('assertPermissionSubset', () => {
   it('allows an empty grant', () => {
@@ -16,6 +16,13 @@ describe('assertPermissionSubset', () => {
         ['roles:create', 'roles:read'],
       ),
     ).toBe(true);
+  });
+});
+
+describe('canManageTenants', () => {
+  it('is true only with orgs:create', () => {
+    expect(canManageTenants(['orgs:update'])).toBe(false);
+    expect(canManageTenants(['orgs:create'])).toBe(true);
   });
 });
 

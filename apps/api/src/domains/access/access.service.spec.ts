@@ -18,10 +18,11 @@ describe('AccessService', () => {
   const activity: IActivityEmitter = { emit: jest.fn(), drain: jest.fn() };
   const service = new AccessService(repo, {} as never, activity);
 
-  it('groups permissions by domain in one pass', async () => {
-    const grouped = await service.listPermissions();
-    expect(Object.keys(grouped)).toEqual(['access', 'admin']);
+  it('groups only permissions the actor already holds', async () => {
+    const grouped = await service.listPermissions(['roles:create']);
+    expect(Object.keys(grouped)).toEqual(['access']);
     expect(grouped.access).toHaveLength(1);
+    expect(grouped.admin).toBeUndefined();
   });
 
   it('refuses a grant the actor does not hold', async () => {
