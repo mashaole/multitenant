@@ -63,4 +63,10 @@ Delegated to the agent: boilerplate, Prisma schema, Nest modules, React pages. K
 
 ### Validation
 
-_(Appended after implementation.)_
+Implemented and checked after the build:
+
+- Unit tests: week helper, permission subset, access service (in-memory repo) — 9 passed.
+- API e2e: health, 405/TRACE, 422 envelope without stack/SQL, cross-org 404, Apex `FORBIDDEN_MODULE`, member cannot create surveys, idempotent submit + 409, manager summary, superset guard, session-cap revoke, logout revoke, invalid answer leaves no leftover row, SQL-looking title stored as text, activity has no token/email material — 15 passed.
+- Newman: health, Liam login + active survey, Maya summary + activity, Priya summary module denied — 0 failed.
+- Browser (localhost:5173): login picker; Liam submit (“Saved for this week.”); Maya summary (2 of 2, 100%, rating avg + yes/no counts), roles catalog, people, settings, activity; Priya summary shows “This module is not enabled…” with Retry and the shell stays up; Ava orgs list with module checkboxes (Apex summary off).
+- Residual observed: JWT is still a permission snapshot; async activity can drop a log on crash; demo secret is local-only.
