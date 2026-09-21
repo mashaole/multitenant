@@ -1,0 +1,25 @@
+import { Body, Controller, Get, Post } from '@nestjs/common';
+import { AuthService } from './auth.service';
+import { LoginDto } from './models/login.dto';
+import { CurrentAuth } from '../../shared/http/current-auth.decorator';
+import { TokenClaims } from '../../shared/ports/token-signer.port';
+
+@Controller('auth')
+export class AuthController {
+  constructor(private readonly auth: AuthService) {}
+
+  @Post('login')
+  login(@Body() body: LoginDto) {
+    return this.auth.login(body.userId);
+  }
+
+  @Post('logout')
+  logout(@CurrentAuth() auth: TokenClaims) {
+    return this.auth.logout(auth.jti, auth.orgId, auth.sub);
+  }
+
+  @Get('users')
+  users() {
+    return this.auth.listUsers();
+  }
+}
