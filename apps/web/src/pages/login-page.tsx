@@ -29,7 +29,7 @@ export function LoginPage() {
       return;
     }
     if (has('orgs:create')) {
-      navigate('/admin/orgs');
+      navigate('/orgs');
     } else if (has('summary:read')) {
       navigate('/summary');
     } else {

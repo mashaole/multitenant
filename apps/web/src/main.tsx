@@ -53,7 +53,7 @@ createRoot(document.getElementById('root')!).render(
               }
             />
             <Route
-              path="/admin/users"
+              path="/people"
               element={
                 <ProtectedRoute permission="users:create">
                   <AdminUsersPage />
@@ -61,7 +61,7 @@ createRoot(document.getElementById('root')!).render(
               }
             />
             <Route
-              path="/admin/orgs"
+              path="/orgs"
               element={
                 <ProtectedRoute permission="orgs:create">
                   <AdminOrgsPage />

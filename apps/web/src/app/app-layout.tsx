@@ -13,9 +13,9 @@ export function AppLayout() {
           {has('responses:submit') && <NavLink to="/survey">Survey</NavLink>}
           {has('summary:read') && <NavLink to="/summary">Summary</NavLink>}
           {has('roles:create') && <NavLink to="/roles">Roles</NavLink>}
-          {has('users:create') && <NavLink to="/admin/users">People</NavLink>}
+          {has('users:create') && <NavLink to="/people">People</NavLink>}
           {has('orgs:update') && <NavLink to="/settings">Settings</NavLink>}
-          {has('orgs:create') && <NavLink to="/admin/orgs">Orgs</NavLink>}
+          {has('orgs:create') && <NavLink to="/orgs">Orgs</NavLink>}
           {has('activity:read') && <NavLink to="/activity">Activity</NavLink>}
         </nav>
         <div className="who">
