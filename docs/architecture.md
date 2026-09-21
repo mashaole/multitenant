@@ -40,4 +40,4 @@ Cross-tenant org create / list / module grant uses the privileged client (bypass
 3. Replace in-process calls with a client behind the same port.
 4. Promote `src/shared` to `packages/shared` when a second service appears.
 
-Local: no broker — `IActivityEmitter` drains in-process. AWS design: the same port produces to SQS; workers consume activity writes and weekly email digests. See [flows.md](flows.md).
+Local: no broker — `IActivityEmitter` drains in-process. AWS design: the same port produces to SQS; ECS Fargate workers consume activity writes and weekly email digests. See [flows.md](flows.md).
