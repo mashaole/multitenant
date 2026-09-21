@@ -1,0 +1,28 @@
+{
+  "name": "multitenant-pulse",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Multi-tenant weekly pulse surveys",
+  "workspaces": [
+    "apps/*"
+  ],
+  "scripts": {
+    "dev": "concurrently -n api,web -c blue,green \"npm run dev -w api\" \"npm run dev -w web\"",
+    "build": "npm run build -w api && npm run build -w web",
+    "test": "npm run test -w api",
+    "test:e2e": "npm run test:e2e -w api",
+    "test:postman": "newman run postman/pulse.postman_collection.json -e postman/local.postman_environment.json --timeout-request 15000",
+    "lint": "npm run lint -w api --if-present && npm run lint -w web --if-present",
+    "setup": "bash scripts/setup.sh",
+    "db:up": "docker compose up -d --wait",
+    "db:down": "docker compose down",
+    "db:reset": "docker compose down -v && docker compose up -d --wait"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2",
+    "newman": "^6.2.1"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
