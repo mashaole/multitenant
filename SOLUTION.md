@@ -52,8 +52,8 @@ flowchart TB
   S3Logo[S3 org logos]
   WAF[WAF]
   ALB[ALB]
-  API[ECS API]
-  Worker[ECS workers]
+  API[ECS Fargate API]
+  Worker[ECS Fargate workers]
   RDS[(RDS Postgres Multi-AZ)]
   Replica[(Read replica)]
   SQS[SQS activity and digest]
@@ -82,7 +82,7 @@ flowchart TB
 | API | ECS Fargate + ALB | Same Nest process as local; scale tasks, not a rewrite |
 | DB | RDS PostgreSQL Multi-AZ | ACID + RLS stay the source of truth |
 | Logos | Presigned S3 PUT, CloudFront signed GET | API signs only; never proxies bytes |
-| Async | SQS + ECS workers | Replaces in-process drain; survives API crash |
+| Async | SQS + ECS Fargate workers | Replaces in-process drain; survives API crash |
 | Mail | SES | Weekly pulse reminder and activity digest |
 | Secrets | Secrets Manager + KMS RS256 | No long-lived HS256 in task env |
 
