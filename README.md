@@ -29,7 +29,7 @@ npm run dev
 Sign in on `/login` with **email, password, and organization name** (for example `Northwind Retail`). Seeded password for every demo user: `Pulse!dev1`. Default session cap is **1** per org (a second login as the same user revokes the first JWT).
 
 | Name | Email | Role | Org | Notes |
-|---|---|---|---|
+|---|---|---|---|---|
 | Ava Stone | ava@pulse.local | SUPER_ADMIN | System | Create orgs, grant modules, add managers |
 | Maya Chen | maya@northwind.local | MANAGER | Northwind Retail | Surveys, submit, summary, roles, people (including managers) |
 | Liam Park | liam@northwind.local | MEMBER | Northwind Retail | Submit pulse |
