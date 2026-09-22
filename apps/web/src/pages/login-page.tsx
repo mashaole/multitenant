@@ -1,30 +1,14 @@
-import { useEffect, useState } from 'react';
+import { FormEvent, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { api } from '../api/client';
 import { useAuth } from '../app/auth-context';
-import { Button, Card, Pager, PageShell } from '../components/ui';
-import { Page, pagePath } from '../models/page';
-
-interface PickerUser {
-  id: string;
-  name: string;
-  email: string;
-  org: { id: string; name: string };
-  role: { name: string };
-}
+import { Button, Card, Field, PageShell } from '../components/ui';
 
 export function LoginPage() {
   const { login, token, has } = useAuth();
   const navigate = useNavigate();
-  const [page, setPage] = useState(1);
-  const [users, setUsers] = useState<Page<PickerUser> | null>(null);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    api<Page<PickerUser>>(pagePath('/auth/users', page), null)
-      .then(setUsers)
-      .catch((err) => setError(err.message));
-  }, [page]);
 
   useEffect(() => {
     if (!token) {
@@ -39,45 +23,45 @@ export function LoginPage() {
     }
   }, [token, has, navigate]);
 
-  const grouped = (users?.items ?? []).reduce<Record<string, PickerUser[]>>(
-    (acc, user) => {
-      acc[user.org.name] = acc[user.org.name] ?? [];
-      acc[user.org.name].push(user);
-      return acc;
-    },
-    {},
-  );
+  async function handleSubmit(event: FormEvent) {
+    event.preventDefault();
+    try {
+      await login(email, password);
+    } catch (err) {
+      setError((err as { message: string }).message);
+    }
+  }
 
   return (
     <PageShell title="Sign in">
-      <p className="muted">Pick a seeded user. Session cap defaults to 1 per org.</p>
+      <p className="muted">
+        Use your work email and password. Session cap defaults to 1 per org.
+      </p>
       {error && <p className="error-text">{error}</p>}
-      {Object.entries(grouped).map(([org, list]) => (
-        <Card key={org}>
-          <h2>{org}</h2>
-          <ul className="user-list">
-            {list.map((user) => (
-              <li key={user.id}>
-                <div>
-                  <strong>{user.name}</strong>
-                  <span className="muted"> {user.role.name}</span>
-                </div>
-                <Button onClick={() => login(user.id).catch((e) => setError(e.message))}>
-                  Enter
-                </Button>
-              </li>
-            ))}
-          </ul>
-        </Card>
-      ))}
-      {users && (
-        <Pager
-          page={users.page}
-          limit={users.limit}
-          total={users.total}
-          onPage={setPage}
-        />
-      )}
+      <Card>
+        <form onSubmit={handleSubmit}>
+          <Field label="Email">
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              autoComplete="username"
+              required
+            />
+          </Field>
+          <Field label="Password">
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              autoComplete="current-password"
+              minLength={8}
+              required
+            />
+          </Field>
+          <Button type="submit">Sign in</Button>
+        </form>
+      </Card>
     </PageShell>
   );
 }

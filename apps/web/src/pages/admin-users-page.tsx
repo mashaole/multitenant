@@ -30,6 +30,7 @@ export function AdminUsersPage() {
   );
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [roleId, setRoleId] = useState('');
   const [status, setStatus] = useState<string | null>(null);
 
@@ -38,10 +39,11 @@ export function AdminUsersPage() {
     try {
       await api('/users', token, {
         method: 'POST',
-        body: JSON.stringify({ name, email, roleId }),
+        body: JSON.stringify({ name, email, password, roleId }),
       });
       setName('');
       setEmail('');
+      setPassword('');
       setStatus('User created.');
       setPage(1);
       users.retry();
@@ -62,6 +64,16 @@ export function AdminUsersPage() {
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
+              required
+            />
+          </Field>
+          <Field label="Password">
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              autoComplete="new-password"
+              minLength={8}
               required
             />
           </Field>
