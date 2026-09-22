@@ -1,8 +1,9 @@
-import { Body, Controller, Get, Post } from '@nestjs/common';
+import { Body, Controller, Get, Post, Query } from '@nestjs/common';
 import { SurveysService } from './surveys.service';
 import { CreateSurveyDto } from './models/create-survey.dto';
 import { RequiresPermission } from '../../shared/http/permission.decorator';
 import { CurrentAuth } from '../../shared/http/current-auth.decorator';
+import { PaginationQueryDto } from '../../shared/http/pagination.dto';
 import { TokenClaims } from '../../shared/ports/token-signer.port';
 
 @Controller('surveys')
@@ -11,8 +12,11 @@ export class SurveysController {
 
   @Get()
   @RequiresPermission('surveys:read')
-  list(@CurrentAuth() auth: TokenClaims) {
-    return this.surveys.list(auth);
+  list(
+    @CurrentAuth() auth: TokenClaims,
+    @Query() query: PaginationQueryDto,
+  ) {
+    return this.surveys.list(auth, query.page, query.limit);
   }
 
   @Get('active')

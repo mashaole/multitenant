@@ -15,15 +15,19 @@ export interface AuthUserRecord {
 
 export interface IAuthRepository {
   findActiveUser(userId: string): Promise<AuthUserRecord | null>;
-  listPickerUsers(): Promise<
-    Array<{
+  listPickerUsers(
+    skip: number,
+    take: number,
+  ): Promise<{
+    items: Array<{
       id: string;
       name: string;
       email: string;
       org: { id: string; name: string };
       role: { name: string };
-    }>
-  >;
+    }>;
+    total: number;
+  }>;
   listActiveSessions(userId: string, now: Date): Promise<Array<{ id: string; createdAt: Date }>>;
   revokeSessions(ids: string[], at: Date): Promise<void>;
   createSession(data: {

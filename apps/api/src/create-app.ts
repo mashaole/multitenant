@@ -19,6 +19,7 @@ export async function createApp(): Promise<NestExpressApplication> {
       whitelist: true,
       forbidNonWhitelisted: true,
       transform: true,
+      transformOptions: { enableImplicitConversion: true },
       errorHttpStatusCode: 422,
     }),
   );

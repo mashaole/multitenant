@@ -9,6 +9,7 @@ import {
   isOrgReader,
 } from '../../shared/access-control/permissions';
 import { AppError, ERROR_CODES } from '../../shared/http/error-codes';
+import { paginate, toPage } from '../../shared/http/pagination';
 import { ACTIVITY_EMITTER, IActivityEmitter } from '../../shared/ports/activity.port';
 import { CLOCK, IClock } from '../../shared/ports/clock.port';
 
@@ -36,10 +37,19 @@ export class AdminService {
     );
   }
 
-  listOrgs() {
-    return this.prisma.organization.findMany({
-      orderBy: { name: 'asc' },
-      include: { orgModules: { include: { module: true } } },
+  listOrgs(page?: number, limit?: number) {
+    const { page: nextPage, limit: nextLimit, skip, take } = toPage(page, limit);
+    return this.prisma.$transaction(async (tx) => {
+      const [items, total] = await Promise.all([
+        tx.organization.findMany({
+          orderBy: { name: 'asc' },
+          include: { orgModules: { include: { module: true } } },
+          skip,
+          take,
+        }),
+        tx.organization.count(),
+      ]);
+      return paginate(items, total, nextPage, nextLimit);
     });
   }
 
@@ -248,7 +258,8 @@ export class AdminService {
     return { ok: true, unchanged: result.unchanged };
   }
 
-  listUsers(auth: TokenClaims) {
+  async listUsers(auth: TokenClaims, page?: number, limit?: number) {
+    const { page: nextPage, limit: nextLimit, skip, take } = toPage(page, limit);
     const select = {
       id: true,
       name: true,
@@ -258,19 +269,25 @@ export class AdminService {
       org: { select: { id: true, name: true } },
       role: { select: { name: true } },
     } as const;
+    const where = canManageTenants(auth.permissions)
+      ? { deletedAt: null }
+      : { deletedAt: null, orgId: auth.orgId };
+    const run = async (db: TenantTx | PrismaService) => {
+      const [items, total] = await Promise.all([
+        db.user.findMany({
+          where,
+          select,
+          orderBy: { name: 'asc' },
+          skip,
+          take,
+        }),
+        db.user.count({ where }),
+      ]);
+      return paginate(items, total, nextPage, nextLimit);
+    };
     if (canManageTenants(auth.permissions)) {
-      return this.prisma.user.findMany({
-        where: { deletedAt: null },
-        select,
-        orderBy: { name: 'asc' },
-      });
+      return run(this.prisma);
     }
-    return this.tenantWork(auth, (tx) =>
-      tx.user.findMany({
-        where: { deletedAt: null, orgId: auth.orgId },
-        select,
-        orderBy: { name: 'asc' },
-      }),
-    );
+    return this.tenantWork(auth, (tx) => run(tx));
   }
 }

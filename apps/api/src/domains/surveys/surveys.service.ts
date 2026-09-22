@@ -4,6 +4,7 @@ import { withTenant } from '../../shared/tenant/with-tenant';
 import { TokenClaims } from '../../shared/ports/token-signer.port';
 import { isOrgReader } from '../../shared/access-control/permissions';
 import { AppError, ERROR_CODES } from '../../shared/http/error-codes';
+import { paginate, toPage } from '../../shared/http/pagination';
 import { ACTIVITY_EMITTER, IActivityEmitter } from '../../shared/ports/activity.port';
 import { CreateSurveyDto } from './models/create-survey.dto';
 
@@ -14,11 +15,25 @@ export class SurveysService {
     @Inject(ACTIVITY_EMITTER) private readonly activity: IActivityEmitter,
   ) {}
 
-  list(auth: TokenClaims) {
+  list(auth: TokenClaims, page?: number, limit?: number) {
+    const { page: nextPage, limit: nextLimit, skip, take } = toPage(page, limit);
     return withTenant(
       this.appPrisma,
       { orgId: auth.orgId, userId: auth.sub, isOrgReader: isOrgReader(auth.permissions) },
-      (tx) => tx.survey.findMany({ where: { orgId: auth.orgId }, include: { questions: true } }),
+      async (tx) => {
+        const where = { orgId: auth.orgId };
+        const [items, total] = await Promise.all([
+          tx.survey.findMany({
+            where,
+            include: { questions: true },
+            orderBy: { createdAt: 'desc' },
+            skip,
+            take,
+          }),
+          tx.survey.count({ where }),
+        ]);
+        return paginate(items, total, nextPage, nextLimit);
+      },
     );
   }
 

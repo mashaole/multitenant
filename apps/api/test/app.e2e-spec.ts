@@ -135,7 +135,7 @@ describe('pulse api (e2e)', () => {
       .get('/roles')
       .set('Authorization', `Bearer ${token}`)
       .expect(200);
-    const names = (roles.body as Array<{ name: string }>).map((r) => r.name);
+    const names = (roles.body.items as Array<{ name: string }>).map((r) => r.name);
     expect(names).toContain('MANAGER');
     expect(names).not.toContain('SUPER_ADMIN');
     const created = await request(app.getHttpServer())
@@ -284,5 +284,27 @@ describe('pulse api (e2e)', () => {
       .expect(200);
     const raw = JSON.stringify(res.body);
     expect(raw).not.toMatch(/tokenHash|Bearer |@northwind/);
+    expect(Array.isArray(res.body.items)).toBe(true);
+    expect(res.body.limit).toBeLessThanOrEqual(100);
+  });
+
+  it('rejects out-of-range list limits and pages results', async () => {
+    const token = await login(IDS.user.maya);
+    await request(app.getHttpServer())
+      .get('/users?limit=0')
+      .set('Authorization', `Bearer ${token}`)
+      .expect(422);
+    await request(app.getHttpServer())
+      .get('/users?limit=101')
+      .set('Authorization', `Bearer ${token}`)
+      .expect(422);
+    const res = await request(app.getHttpServer())
+      .get('/users?page=1&limit=1')
+      .set('Authorization', `Bearer ${token}`)
+      .expect(200);
+    expect(res.body.items).toHaveLength(1);
+    expect(res.body.page).toBe(1);
+    expect(res.body.limit).toBe(1);
+    expect(res.body.total).toBeGreaterThan(1);
   });
 });

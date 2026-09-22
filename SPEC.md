@@ -58,6 +58,8 @@ Protected (token then permission):
 | GET | /surveys/:id/summary | summary:read + summary module |
 | GET | /activity | activity:read + activity module |
 
+List endpoints return `{ items, page, limit, total }`. Query `page` (min 1, default 1) and `limit` (1–100, default 20).
+
 `POST /auth/login` `{ userId }` → `{ token, expiresAt, user, org }`.
 
 `POST /surveys` `{ title, questions: [{ text, type, position }] }` max 3 questions.

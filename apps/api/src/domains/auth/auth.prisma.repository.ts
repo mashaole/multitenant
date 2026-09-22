@@ -16,18 +16,25 @@ export class AuthPrismaRepository implements IAuthRepository {
     });
   }
 
-  listPickerUsers() {
-    return this.prisma.user.findMany({
-      where: { deletedAt: null },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        org: { select: { id: true, name: true } },
-        role: { select: { name: true } },
-      },
-      orderBy: [{ orgId: 'asc' }, { name: 'asc' }],
-    });
+  async listPickerUsers(skip: number, take: number) {
+    const where = { deletedAt: null };
+    const [items, total] = await Promise.all([
+      this.prisma.user.findMany({
+        where,
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          org: { select: { id: true, name: true } },
+          role: { select: { name: true } },
+        },
+        orderBy: [{ orgId: 'asc' }, { name: 'asc' }],
+        skip,
+        take,
+      }),
+      this.prisma.user.count({ where }),
+    ]);
+    return { items, total };
   }
 
   listActiveSessions(userId: string, now: Date) {

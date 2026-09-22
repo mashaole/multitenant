@@ -19,10 +19,11 @@ describe('AccessService', () => {
   const service = new AccessService(repo, {} as never, activity);
 
   it('groups only permissions the actor already holds', async () => {
-    const grouped = await service.listPermissions(['roles:create']);
-    expect(Object.keys(grouped)).toEqual(['access']);
-    expect(grouped.access).toHaveLength(1);
-    expect(grouped.admin).toBeUndefined();
+    const page = await service.listPermissions(['roles:create']);
+    expect(page.total).toBe(1);
+    expect(page.items).toHaveLength(1);
+    expect(page.items[0].domain).toBe('access');
+    expect(page.limit).toBe(20);
   });
 
   it('refuses a grant the actor does not hold', async () => {

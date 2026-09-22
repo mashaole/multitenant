@@ -6,6 +6,7 @@ import { TOKEN_SIGNER, ITokenSigner } from '../../shared/ports/token-signer.port
 import { TOKEN_HASHER, ITokenHasher } from '../../shared/ports/token-hasher.port';
 import { ACTIVITY_EMITTER, IActivityEmitter } from '../../shared/ports/activity.port';
 import { AppError, ERROR_CODES } from '../../shared/http/error-codes';
+import { paginate, toPage } from '../../shared/http/pagination';
 import { PrismaService } from '../../shared/prisma/prisma.service';
 
 const TTL = Number(process.env.JWT_TTL_SECONDS ?? 86400);
@@ -108,7 +109,10 @@ export class AuthService {
     return { ok: true };
   }
 
-  listUsers() {
-    return this.repo.listPickerUsers();
+  listUsers(page?: number, limit?: number) {
+    const { page: nextPage, limit: nextLimit, skip, take } = toPage(page, limit);
+    return this.repo.listPickerUsers(skip, take).then(({ items, total }) =>
+      paginate(items, total, nextPage, nextLimit),
+    );
   }
 }

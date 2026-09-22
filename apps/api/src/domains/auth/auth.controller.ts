@@ -1,7 +1,8 @@
-import { Body, Controller, Get, Post } from '@nestjs/common';
+import { Body, Controller, Get, Post, Query } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { LoginDto } from './models/login.dto';
 import { CurrentAuth } from '../../shared/http/current-auth.decorator';
+import { PaginationQueryDto } from '../../shared/http/pagination.dto';
 import { TokenClaims } from '../../shared/ports/token-signer.port';
 
 @Controller('auth')
@@ -19,7 +20,7 @@ export class AuthController {
   }
 
   @Get('users')
-  users() {
-    return this.auth.listUsers();
+  users(@Query() query: PaginationQueryDto) {
+    return this.auth.listUsers(query.page, query.limit);
   }
 }

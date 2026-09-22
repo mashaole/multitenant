@@ -6,6 +6,7 @@ import { withTenant } from '../../shared/tenant/with-tenant';
 import { TokenClaims } from '../../shared/ports/token-signer.port';
 import { isOrgReader, assertPermissionSubset } from '../../shared/access-control/permissions';
 import { AppError, ERROR_CODES } from '../../shared/http/error-codes';
+import { slicePage } from '../../shared/http/pagination';
 import { ACTIVITY_EMITTER, IActivityEmitter } from '../../shared/ports/activity.port';
 
 @Injectable()
@@ -16,26 +17,21 @@ export class AccessService {
     @Inject(ACTIVITY_EMITTER) private readonly activity: IActivityEmitter,
   ) {}
 
-  async listPermissions(actorKeys: string[]) {
+  async listPermissions(actorKeys: string[], page?: number, limit?: number) {
     const allowed = new Set(actorKeys);
     const rows = (await this.repo.listPermissions()).filter((row) =>
       allowed.has(row.key),
     );
-    const grouped: Record<string, typeof rows> = {};
-    for (const row of rows) {
-      grouped[row.domain] = grouped[row.domain] ?? [];
-      grouped[row.domain].push(row);
-    }
-    return grouped;
+    return slicePage(rows, page, limit);
   }
 
-  async listRoles(auth: TokenClaims) {
+  async listRoles(auth: TokenClaims, page?: number, limit?: number) {
     const roles = await withTenant(
       this.appPrisma,
       { orgId: auth.orgId, userId: auth.sub, isOrgReader: isOrgReader(auth.permissions) },
       (tx) => this.repo.listRoles(tx, auth.orgId),
     );
-    return roles
+    const assignable = roles
       .filter((role) =>
         assertPermissionSubset(
           auth.permissions,
@@ -43,6 +39,7 @@ export class AccessService {
         ),
       )
       .map(({ perms, ...role }) => role);
+    return slicePage(assignable, page, limit);
   }
 
   async createRole(auth: TokenClaims, name: string, permissionKeys: string[]) {

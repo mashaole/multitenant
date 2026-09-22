@@ -1,8 +1,9 @@
-import { Body, Controller, Delete, Get, Param, ParseUUIDPipe, Patch, Post, Put } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, ParseUUIDPipe, Patch, Post, Put, Query } from '@nestjs/common';
 import { AdminService } from './admin.service';
 import { CreateOrgDto, CreateUserDto, PatchSettingsDto, PutModulesDto } from './models/admin.dto';
 import { RequiresPermission } from '../../shared/http/permission.decorator';
 import { CurrentAuth } from '../../shared/http/current-auth.decorator';
+import { PaginationQueryDto } from '../../shared/http/pagination.dto';
 import { TokenClaims } from '../../shared/ports/token-signer.port';
 
 @Controller()
@@ -11,8 +12,8 @@ export class AdminController {
 
   @Get('orgs')
   @RequiresPermission('orgs:create')
-  listOrgs() {
-    return this.admin.listOrgs();
+  listOrgs(@Query() query: PaginationQueryDto) {
+    return this.admin.listOrgs(query.page, query.limit);
   }
 
   @Post('orgs')
@@ -49,8 +50,11 @@ export class AdminController {
 
   @Get('users')
   @RequiresPermission('users:create')
-  listUsers(@CurrentAuth() auth: TokenClaims) {
-    return this.admin.listUsers(auth);
+  listUsers(
+    @CurrentAuth() auth: TokenClaims,
+    @Query() query: PaginationQueryDto,
+  ) {
+    return this.admin.listUsers(auth, query.page, query.limit);
   }
 
   @Delete('users/:id')
