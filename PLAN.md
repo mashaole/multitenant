@@ -173,7 +173,7 @@ Public: `POST /auth/login`, `GET /health`.
 
 ## AWS (design only)
 
-CloudFront + S3 web; WAF → ALB → ECS Fargate API (no API Gateway); RDS Postgres Multi-AZ; SQS workers; SES. Org logos: presigned S3 PUT, CloudFront signed GET. Same `IActivityEmitter` port produces to SQS off the request path. Details in [SOLUTION.md](SOLUTION.md) and [docs/flows.md](docs/flows.md).
+CloudFront + S3 web; WAF → ALB → ECS Fargate API (no API Gateway); RDS Postgres Multi-AZ; SQS workers; SES. Org logos: presigned S3 PUT, CloudFront signed GET. Same `IActivityEmitter` port produces to SQS off the request path. Observability: CloudWatch Logs (JSON) + Metrics/alarms + OpenTelemetry/ADOT → X-Ray across API and workers. Details in [SOLUTION.md](SOLUTION.md) and [docs/flows.md](docs/flows.md).
 
 ## Threat model (STRIDE-lite)
 
