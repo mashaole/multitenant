@@ -1,5 +1,6 @@
 import { FormEvent, useState } from 'react';
 import { api } from '../api/client';
+import { Panel } from '../app/error-boundary';
 import { useAuth } from '../app/auth-context';
 import { Button, Card, ErrorFallback, Field, LoadingState, Pager, PageShell } from '../components/ui';
 import { Page, pagePath } from '../models/page';
@@ -75,19 +76,21 @@ export function SummaryPage() {
   return (
     <PageShell title="Team pulse">
       {has('surveys:create') && (
-        <Card>
-          <form onSubmit={handleCreate}>
-            <Field label="New survey title">
-              <input
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                required
-              />
-            </Field>
-            <Button type="submit">Create survey</Button>
-          </form>
-          {status && <p>{status}</p>}
-        </Card>
+        <Panel>
+          <Card>
+            <form onSubmit={handleCreate}>
+              <Field label="New survey title">
+                <input
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  required
+                />
+              </Field>
+              <Button type="submit">Create survey</Button>
+            </form>
+            {status && <p>{status}</p>}
+          </Card>
+        </Panel>
       )}
       {surveys.loading || summary.loading ? <LoadingState /> : null}
       {surveys.error && (
@@ -97,34 +100,38 @@ export function SummaryPage() {
         <ErrorFallback message={summary.error} onRetry={summary.retry} />
       )}
       {surveys.data && surveys.data.items.length > 1 && (
-        <ul className="user-list">
-          {surveys.data.items.map((survey) => (
-            <li key={survey.id}>
-              <strong>{survey.title}</strong>
-            </li>
-          ))}
-        </ul>
+        <Panel>
+          <ul className="user-list">
+            {surveys.data.items.map((survey) => (
+              <li key={survey.id}>
+                <strong>{survey.title}</strong>
+              </li>
+            ))}
+          </ul>
+        </Panel>
       )}
       {summary.data && selected && !summary.error && (
-        <Card>
-          <h2>{selected.title}</h2>
-          <p>Week of {summary.data.weekStart}</p>
-          <p>
-            {summary.data.completionCount} of {summary.data.memberCount} members
-            submitted
-          </p>
-          <p>
-            Completion {Math.round(summary.data.completionRate * 100)}%
-          </p>
-          {summary.data.questions.map((q) => (
-            <p key={q.questionId}>
-              {q.text}:{' '}
-              {q.type === 'RATING'
-                ? `avg ${q.average?.toFixed(1) ?? 0} (${q.count ?? 0})`
-                : `yes ${q.yes ?? 0} / no ${q.no ?? 0}`}
+        <Panel>
+          <Card>
+            <h2>{selected.title}</h2>
+            <p>Week of {summary.data.weekStart}</p>
+            <p>
+              {summary.data.completionCount} of {summary.data.memberCount} members
+              submitted
             </p>
-          ))}
-        </Card>
+            <p>
+              Completion {Math.round(summary.data.completionRate * 100)}%
+            </p>
+            {summary.data.questions.map((q) => (
+              <p key={q.questionId}>
+                {q.text}:{' '}
+                {q.type === 'RATING'
+                  ? `avg ${q.average?.toFixed(1) ?? 0} (${q.count ?? 0})`
+                  : `yes ${q.yes ?? 0} / no ${q.no ?? 0}`}
+              </p>
+            ))}
+          </Card>
+        </Panel>
       )}
       {surveys.data && (
         <Pager

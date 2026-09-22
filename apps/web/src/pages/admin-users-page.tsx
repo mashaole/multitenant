@@ -1,5 +1,6 @@
 import { FormEvent, useState } from 'react';
 import { api } from '../api/client';
+import { Panel } from '../app/error-boundary';
 import { useAuth } from '../app/auth-context';
 import { Button, Card, ErrorFallback, Field, LoadingState, Pager, PageShell } from '../components/ui';
 import { Page, pagePath } from '../models/page';
@@ -54,8 +55,9 @@ export function AdminUsersPage() {
 
   return (
     <PageShell title="People">
-      <Card>
-        <form onSubmit={handleCreate}>
+      <Panel>
+        <Card>
+          <form onSubmit={handleCreate}>
           <Field label="Name">
             <input value={name} onChange={(e) => setName(e.target.value)} required />
           </Field>
@@ -89,9 +91,11 @@ export function AdminUsersPage() {
           </Field>
           <Button type="submit">Invite</Button>
         </form>
-        {status && <p>{status}</p>}
-      </Card>
-      {users.loading && <LoadingState />}
+          {status && <p>{status}</p>}
+        </Card>
+      </Panel>
+      <Panel>
+        {users.loading && <LoadingState />}
       {users.error && <ErrorFallback message={users.error} onRetry={users.retry} />}
       {users.data?.items.map((user) => (
         <Card key={user.id}>
@@ -109,6 +113,7 @@ export function AdminUsersPage() {
           onPage={setPage}
         />
       )}
+      </Panel>
     </PageShell>
   );
 }

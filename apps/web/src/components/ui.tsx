@@ -20,14 +20,21 @@ export function Button({
   onClick,
   type = 'button',
   disabled,
+  variant = 'solid',
 }: {
   children: ReactNode;
   onClick?: () => void;
   type?: 'button' | 'submit';
   disabled?: boolean;
+  variant?: 'solid' | 'ghost';
 }) {
   return (
-    <button className="btn" type={type} onClick={onClick} disabled={disabled}>
+    <button
+      className={variant === 'ghost' ? 'btn ghost' : 'btn'}
+      type={type}
+      onClick={onClick}
+      disabled={disabled}
+    >
       {children}
     </button>
   );
@@ -66,15 +73,18 @@ export function Card({ children }: { children: ReactNode }) {
 
 export function Field({
   label,
+  hint,
   children,
 }: {
   label: string;
+  hint?: string;
   children: ReactNode;
 }) {
   return (
     <label className="field">
       <span>{label}</span>
       {children}
+      {hint ? <span className="muted">{hint}</span> : null}
     </label>
   );
 }

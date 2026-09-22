@@ -3,6 +3,7 @@ const API = import.meta.env.VITE_API_URL ?? 'http://localhost:3001';
 export interface ApiError {
   code: string;
   message: string;
+  details?: { field?: string };
 }
 
 export async function api<T>(

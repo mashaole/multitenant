@@ -1,5 +1,6 @@
 import { FormEvent, useMemo, useState } from 'react';
 import { api } from '../api/client';
+import { Panel } from '../app/error-boundary';
 import { useAuth } from '../app/auth-context';
 import { Button, Card, ErrorFallback, Field, LoadingState, Pager, PageShell } from '../components/ui';
 import { Page, pagePath } from '../models/page';
@@ -66,62 +67,93 @@ export function RolesPage() {
     }
   }
 
+  async function handleDelete(roleId: string) {
+    try {
+      await api(`/roles/${roleId}`, token, { method: 'DELETE' });
+      setStatus('Role removed.');
+      roles.retry();
+    } catch (err) {
+      setStatus((err as { message: string }).message);
+    }
+  }
+
   return (
     <PageShell title="Roles">
-      <Card>
-        <form onSubmit={handleCreate}>
-          <Field label="Name">
-            <input value={name} onChange={(e) => setName(e.target.value)} required />
-          </Field>
-          {permissions.loading && <LoadingState />}
-          {permissions.error && (
-            <ErrorFallback message={permissions.error} onRetry={permissions.retry} />
-          )}
-          {Object.entries(grouped).map(([domain, list]) => (
-            <fieldset key={domain} className="field">
-              <legend>{domain}</legend>
-              {list.map((item) => (
-                <label key={item.key}>
-                  <input
-                    type="checkbox"
-                    checked={selected.includes(item.key)}
-                    onChange={() => handleToggle(item.key)}
-                  />{' '}
-                  {item.key}
-                </label>
-              ))}
-            </fieldset>
-          ))}
-          {permissions.data && (
-            <Pager
-              page={permissions.data.page}
-              limit={permissions.data.limit}
-              total={permissions.data.total}
-              onPage={setPermPage}
-            />
-          )}
-          <Button type="submit" disabled={selected.length === 0}>
-            Create role
-          </Button>
-        </form>
-        {status && <p>{status}</p>}
-      </Card>
-      {roles.loading && <LoadingState />}
-      {roles.error && <ErrorFallback message={roles.error} onRetry={roles.retry} />}
-      {roles.data?.items.map((role) => (
-        <Card key={role.id}>
-          <strong>{role.name}</strong>
-          <p className="muted">{role.isSystem ? 'System' : 'Custom'}</p>
+      <Panel>
+        <Card>
+          <form onSubmit={handleCreate}>
+            <Field label="Name">
+              <input
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                required
+              />
+            </Field>
+            {permissions.loading && <LoadingState />}
+            {permissions.error && (
+              <ErrorFallback
+                message={permissions.error}
+                onRetry={permissions.retry}
+              />
+            )}
+            {Object.entries(grouped).map(([domain, list]) => (
+              <fieldset key={domain} className="field">
+                <legend>{domain}</legend>
+                {list.map((item) => (
+                  <label key={item.key}>
+                    <input
+                      type="checkbox"
+                      checked={selected.includes(item.key)}
+                      onChange={() => handleToggle(item.key)}
+                    />{' '}
+                    {item.key}
+                  </label>
+                ))}
+              </fieldset>
+            ))}
+            {permissions.data && (
+              <Pager
+                page={permissions.data.page}
+                limit={permissions.data.limit}
+                total={permissions.data.total}
+                onPage={setPermPage}
+              />
+            )}
+            <Button type="submit" disabled={selected.length === 0}>
+              Create role
+            </Button>
+          </form>
+          {status && <p>{status}</p>}
         </Card>
-      ))}
-      {roles.data && (
-        <Pager
-          page={roles.data.page}
-          limit={roles.data.limit}
-          total={roles.data.total}
-          onPage={setRolePage}
-        />
-      )}
+      </Panel>
+      <Panel>
+        {roles.loading && <LoadingState />}
+        {roles.error && (
+          <ErrorFallback message={roles.error} onRetry={roles.retry} />
+        )}
+        {roles.data?.items.map((role) => (
+          <Card key={role.id}>
+            <strong>{role.name}</strong>
+            <p className="muted">{role.isSystem ? 'System' : 'Custom'}</p>
+            {!role.isSystem && (
+              <Button
+                variant="ghost"
+                onClick={() => void handleDelete(role.id)}
+              >
+                Remove
+              </Button>
+            )}
+          </Card>
+        ))}
+        {roles.data && (
+          <Pager
+            page={roles.data.page}
+            limit={roles.data.limit}
+            total={roles.data.total}
+            onPage={setRolePage}
+          />
+        )}
+      </Panel>
     </PageShell>
   );
 }

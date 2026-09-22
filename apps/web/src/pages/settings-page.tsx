@@ -1,5 +1,6 @@
 import { FormEvent, useState } from 'react';
 import { api } from '../api/client';
+import { Panel } from '../app/error-boundary';
 import { useAuth } from '../app/auth-context';
 import { Button, Card, Field, PageShell } from '../components/ui';
 
@@ -26,8 +27,9 @@ export function SettingsPage() {
 
   return (
     <PageShell title="Organization settings">
-      <Card>
-        <form onSubmit={handleSubmit}>
+      <Panel>
+        <Card>
+          <form onSubmit={handleSubmit}>
           <Field label="Max sessions per user (1–20)">
             <input
               type="number"
@@ -40,8 +42,9 @@ export function SettingsPage() {
           </Field>
           <Button type="submit">Save</Button>
         </form>
-        {status && <p>{status}</p>}
-      </Card>
+          {status && <p>{status}</p>}
+        </Card>
+      </Panel>
     </PageShell>
   );
 }

@@ -1,5 +1,6 @@
 import { FormEvent, useState } from 'react';
 import { api } from '../api/client';
+import { Panel } from '../app/error-boundary';
 import { useAuth } from '../app/auth-context';
 import { Button, Card, ErrorFallback, LoadingState, PageShell } from '../components/ui';
 import { useFetch } from '../utils/use-fetch';
@@ -72,8 +73,9 @@ export function SurveyPage() {
 
   return (
     <PageShell title={data.title}>
-      <Card>
-        <form onSubmit={handleSubmit}>
+      <Panel>
+        <Card>
+          <form onSubmit={handleSubmit}>
           {data.questions.map((q) => (
             <label className="field" key={q.id}>
               <span>{q.text}</span>
@@ -111,8 +113,9 @@ export function SurveyPage() {
           ))}
           <Button type="submit">Submit</Button>
         </form>
-        {status && <p>{status}</p>}
-      </Card>
+          {status && <p>{status}</p>}
+        </Card>
+      </Panel>
     </PageShell>
   );
 }

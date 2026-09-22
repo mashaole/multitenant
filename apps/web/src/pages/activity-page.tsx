@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { api } from '../api/client';
+import { Panel } from '../app/error-boundary';
 import { useAuth } from '../app/auth-context';
 import { Card, ErrorFallback, Field, LoadingState, Pager, PageShell } from '../components/ui';
 import { Page, pagePath } from '../models/page';
@@ -24,55 +25,57 @@ export function ActivityPage() {
     [token, group, page],
   );
 
-  if (error) {
-    return (
-      <PageShell title="Activity">
-        <ErrorFallback message={error} onRetry={retry} />
-      </PageShell>
-    );
+  function handleGroupChange(next: string) {
+    setGroup(next);
+    setPage(1);
   }
 
   return (
     <PageShell title="Activity">
-      <Card>
-        <Field label="Group">
-          <select
-            value={group}
-            onChange={(e) => {
-              setGroup(e.target.value);
-              setPage(1);
-            }}
-            aria-label="Filter by group"
-          >
-            <option value="">All groups</option>
-            {GROUPS.map((item) => (
-              <option key={item} value={item}>
-                {item}
-              </option>
-            ))}
-          </select>
-        </Field>
-      </Card>
-      {loading && <LoadingState />}
-      {!loading && data?.items.length === 0 && <p>No events yet.</p>}
-      {!loading &&
-        data?.items.map((item) => (
-          <Card key={item.id}>
-            <strong>{item.action}</strong>
-            <p className="muted">
-              {item.user.name} · {item.group} ·{' '}
-              {new Date(item.createdAt).toLocaleString()}
-            </p>
-          </Card>
-        ))}
-      {data && (
-        <Pager
-          page={data.page}
-          limit={data.limit}
-          total={data.total}
-          onPage={setPage}
-        />
-      )}
+      <Panel>
+        <Card>
+          <Field label="Group">
+            <select
+              value={group}
+              onChange={(e) => handleGroupChange(e.target.value)}
+              aria-label="Filter by group"
+            >
+              <option value="">All groups</option>
+              {GROUPS.map((item) => (
+                <option key={item} value={item}>
+                  {item}
+                </option>
+              ))}
+            </select>
+          </Field>
+        </Card>
+      </Panel>
+      <Panel>
+        {error && <ErrorFallback message={error} onRetry={retry} />}
+        {loading && <LoadingState />}
+        {!loading && !error && data?.items.length === 0 && (
+          <p>No events yet.</p>
+        )}
+        {!loading &&
+          !error &&
+          data?.items.map((item) => (
+            <Card key={item.id}>
+              <strong>{item.action}</strong>
+              <p className="muted">
+                {item.user.name} · {item.group} ·{' '}
+                {new Date(item.createdAt).toLocaleString()}
+              </p>
+            </Card>
+          ))}
+        {data && (
+          <Pager
+            page={data.page}
+            limit={data.limit}
+            total={data.total}
+            onPage={setPage}
+          />
+        )}
+      </Panel>
     </PageShell>
   );
 }

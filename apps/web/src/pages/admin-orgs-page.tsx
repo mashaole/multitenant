@@ -1,5 +1,6 @@
 import { FormEvent, useState } from 'react';
 import { api } from '../api/client';
+import { Panel } from '../app/error-boundary';
 import { useAuth } from '../app/auth-context';
 import { Button, Card, ErrorFallback, Field, LoadingState, Pager, PageShell } from '../components/ui';
 import { Page, pagePath } from '../models/page';
@@ -51,16 +52,19 @@ export function AdminOrgsPage() {
 
   return (
     <PageShell title="Organizations">
-      <Card>
-        <form onSubmit={handleCreate}>
+      <Panel>
+        <Card>
+          <form onSubmit={handleCreate}>
           <Field label="Name">
             <input value={name} onChange={(e) => setName(e.target.value)} required />
           </Field>
           <Button type="submit">Create</Button>
         </form>
-        {status && <p>{status}</p>}
-      </Card>
-      {loading && <LoadingState />}
+          {status && <p>{status}</p>}
+        </Card>
+      </Panel>
+      <Panel>
+        {loading && <LoadingState />}
       {error && <ErrorFallback message={error} onRetry={retry} />}
       {data?.items.map((org) => {
         const current = org.orgModules.map((row) => row.module.key);
@@ -96,6 +100,7 @@ export function AdminOrgsPage() {
           onPage={setPage}
         />
       )}
+      </Panel>
     </PageShell>
   );
 }

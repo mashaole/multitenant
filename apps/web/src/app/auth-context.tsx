@@ -18,7 +18,11 @@ interface AuthState {
   token: string | null;
   user: AuthUser | null;
   org: AuthOrg | null;
-  login: (email: string, password: string, orgId?: string) => Promise<void>;
+  login: (
+    email: string,
+    password: string,
+    organization: string,
+  ) => Promise<void>;
   logout: () => Promise<void>;
   has: (permission: string) => boolean;
 }
@@ -36,22 +40,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return raw ? (JSON.parse(raw) as AuthOrg) : null;
   });
 
-  const login = useCallback(async (email: string, password: string, orgId?: string) => {
-    const data = await api<{ token: string; user: AuthUser; org: AuthOrg }>(
-      '/auth/login',
-      null,
-      {
-        method: 'POST',
-        body: JSON.stringify({ email, password, ...(orgId ? { orgId } : {}) }),
-      },
-    );
-    setToken(data.token);
-    setUser(data.user);
-    setOrg(data.org);
-    localStorage.setItem('token', data.token);
-    localStorage.setItem('user', JSON.stringify(data.user));
-    localStorage.setItem('org', JSON.stringify(data.org));
-  }, []);
+  const login = useCallback(
+    async (email: string, password: string, organization: string) => {
+      const data = await api<{ token: string; user: AuthUser; org: AuthOrg }>(
+        '/auth/login',
+        null,
+        {
+          method: 'POST',
+          body: JSON.stringify({
+            email,
+            password,
+            organization,
+          }),
+        },
+      );
+      setToken(data.token);
+      setUser(data.user);
+      setOrg(data.org);
+      localStorage.setItem('token', data.token);
+      localStorage.setItem('user', JSON.stringify(data.user));
+      localStorage.setItem('org', JSON.stringify(data.org));
+    },
+    [],
+  );
 
   const logout = useCallback(async () => {
     if (token) {
