@@ -8,6 +8,8 @@
 
 Hybrid: application `orgId` (JWT + Prisma extension) and PostgreSQL RLS on `pulse_app`.
 
+Login is by `userId`. Email is not a global identity: unique among active users per `orgId` only. Two tenants may share an address as two users with separate sessions and JWTs.
+
 - Org policy on every tenant table: `org_id = current_org` (fail-closed if unset).
 - User policy on responses, answers, sessions, activity: org match and (`user_id = current_user` or `is_org_reader`).
 - `is_org_reader` is derived from permissions so SUPER_ADMIN and MANAGER are not blocked from summary, user delete, or session revoke.

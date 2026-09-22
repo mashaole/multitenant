@@ -89,6 +89,7 @@ model User {
   orgId      String    @db.Uuid
   roleId     String    @db.Uuid
   name       String
+  /// Unique with orgId among active users (SQL: users_org_email_active_key).
   email      String
   createdAt  DateTime  @default(now())
   updatedAt  DateTime  @updatedAt

@@ -11,7 +11,7 @@ Frozen before implementation. Code follows this contract.
 | MEMBER | Tenant | responses:submit, surveys:read |
 | Custom role | Tenant | subset of the actor's permissions |
 
-A user belongs to exactly one organization.
+A user belongs to exactly one organization. The same email may exist in another organization as a different user (separate `id`, sessions, and data). Active emails are unique per organization.
 
 ## Invariants
 
@@ -19,7 +19,7 @@ A user belongs to exactly one organization.
 2. A member cannot read another member's responses, answers, sessions, or activity (`userId` + RLS). SUPER_ADMIN / MANAGER are not blocked: `is_org_reader` is true when their permission set intersects `{ summary:read, activity:read, users:create, users:delete, orgs:update, orgs:create, modules:manage }`.
 3. One response per member per survey per ISO week (Monday start). Unique `(surveyId, userId, weekStart)`.
 4. At most three questions per survey. Types: `RATING` (1–5) and `YES_NO`.
-5. Users are soft-deleted (`deletedAt`). Responses and activity keep `userId`.
+5. Users are soft-deleted (`deletedAt`). Responses and activity keep `userId`. Active `(orgId, email)` is unique; a soft-deleted address may be reused in that org.
 6. Sessions: JWT + `Session` row (`jti`, hash, expiry, revoke). Org `maxSessionsPerUser` default **1**, range 1–20.
 7. You cannot grant permissions you do not have (superset guard).
 8. Disabled org module → 403 `FORBIDDEN_MODULE`.

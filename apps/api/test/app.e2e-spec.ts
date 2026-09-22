@@ -273,7 +273,7 @@ describe('pulse api (e2e)', () => {
 
   it('duplicate email conflicts and soft-delete is idempotent', async () => {
     const token = await login(IDS.user.maya);
-    const email = `kit-${Date.now()}@northwind.local`;
+    const email = `kit-${Date.now()}@shared.local`;
     const created = await request(app.getHttpServer())
       .post('/users')
       .set('Authorization', `Bearer ${token}`)
@@ -292,6 +292,40 @@ describe('pulse api (e2e)', () => {
         roleId: IDS.role.member,
       })
       .expect(409);
+    const priya = await login(IDS.user.priya);
+    const apexTwin = await request(app.getHttpServer())
+      .post('/users')
+      .set('Authorization', `Bearer ${priya}`)
+      .send({
+        name: 'Kit Apex',
+        email,
+        roleId: IDS.role.member,
+      })
+      .expect(201);
+    expect(apexTwin.body.id).not.toBe(created.body.id);
+    expect(apexTwin.body.orgId).toBe(IDS.org.apex);
+    await request(app.getHttpServer())
+      .post('/users')
+      .set('Authorization', `Bearer ${priya}`)
+      .send({
+        name: 'Kit Apex Two',
+        email,
+        roleId: IDS.role.member,
+      })
+      .expect(409);
+    const northwindSession = await request(app.getHttpServer())
+      .post('/auth/login')
+      .send({ userId: created.body.id })
+      .expect(201);
+    const apexSession = await request(app.getHttpServer())
+      .post('/auth/login')
+      .send({ userId: apexTwin.body.id })
+      .expect(201);
+    expect(northwindSession.body.user.id).not.toBe(apexSession.body.user.id);
+    expect(northwindSession.body.org.id).toBe(IDS.org.northwind);
+    expect(apexSession.body.org.id).toBe(IDS.org.apex);
+    expect(northwindSession.body.user.email).toBe(email);
+    expect(apexSession.body.user.email).toBe(email);
     await request(app.getHttpServer())
       .delete(`/users/${created.body.id}`)
       .set('Authorization', `Bearer ${token}`)

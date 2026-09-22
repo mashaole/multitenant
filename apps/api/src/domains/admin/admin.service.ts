@@ -215,7 +215,11 @@ export class AdminService {
       return user;
     } catch (err) {
       if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
-        throw new AppError(ERROR_CODES.CONFLICT_DUPLICATE, 'Email already in use', 409);
+        throw new AppError(
+          ERROR_CODES.CONFLICT_DUPLICATE,
+          'Email already in use in this organization',
+          409,
+        );
       }
       throw err;
     }
