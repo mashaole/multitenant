@@ -28,6 +28,12 @@ flowchart LR
     SES[SES]
     Logos[S3 logos]
   end
+  subgraph observe [Observability]
+    CWLogs[CloudWatch Logs]
+    CWMet[CloudWatch Metrics]
+    XRay[X-Ray ADOT]
+    Alarms[Alarms]
+  end
   Browser --> CF
   Browser -->|JWT| WAF --> ALB --> API
   Browser -->|presigned PUT| Logos
@@ -39,7 +45,22 @@ flowchart LR
   ActW --> RDS
   DigW --> Replica
   DigW --> SES
+  API --> CWLogs
+  ActW --> CWLogs
+  DigW --> CWLogs
+  API --> CWMet
+  ActW --> CWMet
+  DigW --> CWMet
+  ALB --> CWMet
+  RDS --> CWMet
+  SQS --> CWMet
+  API --> XRay
+  ActW --> XRay
+  DigW --> XRay
+  CWMet --> Alarms
 ```
+
+**Observability (design).** Structured JSON logs → CloudWatch Logs (correlated with `trace_id` / `request_id`; no tokens or emails). RED metrics on API routes and USE metrics on RDS / SQS / ECS → CloudWatch Metrics + Container Insights; alarms on 5xx, p99, SQS age, RDS connections. OpenTelemetry via ADOT sidecar → X-Ray; propagate W3C `traceparent` on SQS so worker spans continue the request. Details in [SOLUTION.md](../SOLUTION.md).
 
 ## Login and session cap
 
