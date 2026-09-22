@@ -92,4 +92,4 @@ List endpoints return `{ items, page, limit, total }`. Query `page` (min 1, defa
 
 ## ERD
 
-See [docs/flows.md](docs/flows.md) and the schema in `apps/api/prisma/schema.prisma`. Entities: Organization, User, Session, Role, Permission, RolePermission, Module, OrgModule, Survey, Question, Response, Answer, ActivityLog.
+Visual Mermaid diagram: [docs/erd.md](docs/erd.md). Schema source of truth: `apps/api/prisma/schema.prisma`. Entities: Organization, User, Session, Role, Permission, RolePermission, Module, OrgModule, Survey, Question, Response, Answer, ActivityLog.

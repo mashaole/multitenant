@@ -68,5 +68,6 @@ Import `postman/pulse.postman_collection.json` with `postman/local.postman_envir
 - [SPEC.md](SPEC.md) — contract
 - [SOLUTION.md](SOLUTION.md) — decisions, AWS note, AI workflow
 - [docs/architecture.md](docs/architecture.md)
+- [docs/erd.md](docs/erd.md) — database ERD (Mermaid renders as a diagram on GitHub / IDE preview)
 - [docs/flows.md](docs/flows.md) — sequence + AWS system design (Mermaid renders as diagrams on GitHub)
 - [AGENTS.md](AGENTS.md) — agent constraints
