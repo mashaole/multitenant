@@ -27,11 +27,21 @@ createRoot(document.getElementById('root')!).render(
               </ProtectedRoute>
             }
           >
-            <Route path="/survey" element={<SurveyPage />} />
+            <Route
+              path="/survey"
+              element={
+                <ProtectedRoute
+                  permission="responses:submit"
+                  module="responses"
+                >
+                  <SurveyPage />
+                </ProtectedRoute>
+              }
+            />
             <Route
               path="/summary"
               element={
-                <ProtectedRoute permission="summary:read">
+                <ProtectedRoute permission="summary:read" module="summary">
                   <SummaryPage />
                 </ProtectedRoute>
               }
@@ -71,7 +81,7 @@ createRoot(document.getElementById('root')!).render(
             <Route
               path="/activity"
               element={
-                <ProtectedRoute permission="activity:read">
+                <ProtectedRoute permission="activity:read" module="activity">
                   <ActivityPage />
                 </ProtectedRoute>
               }

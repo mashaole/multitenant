@@ -2,11 +2,12 @@ import { FormEvent, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Panel } from '../app/error-boundary';
 import { useAuth } from '../app/auth-context';
+import { homePath } from '../app/home-path';
 import { ApiError } from '../api/client';
 import { Button, Card, Field, PageShell } from '../components/ui';
 
 export function LoginPage() {
-  const { login, token, has } = useAuth();
+  const { login, token, has, hasModule } = useAuth();
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -17,14 +18,8 @@ export function LoginPage() {
     if (!token) {
       return;
     }
-    if (has('orgs:create')) {
-      navigate('/orgs');
-    } else if (has('summary:read')) {
-      navigate('/summary');
-    } else {
-      navigate('/survey');
-    }
-  }, [token, has, navigate]);
+    navigate(homePath(has, hasModule));
+  }, [token, has, hasModule, navigate]);
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
