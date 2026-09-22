@@ -45,6 +45,15 @@ export class HttpErrorFilter implements ExceptionFilter {
         });
         return;
       }
+      if (status === 429) {
+        res.status(429).json({
+          error: {
+            code: ERROR_CODES.RATE_LIMITED,
+            message: 'Too many requests',
+          },
+        });
+        return;
+      }
       if (status === 405) {
         res.status(405).json({
           error: {

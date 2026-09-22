@@ -16,6 +16,7 @@ import { AsyncActivityEmitter } from './activity/async-activity.emitter';
 import { HttpErrorFilter } from './http/http-error.filter';
 import { PermissionGuard } from './http/permission.guard';
 import { MethodAllowlistMiddleware } from './http/method-allowlist.middleware';
+import { RateLimitMiddleware } from './http/rate-limit.middleware';
 import { TokenMiddleware } from './http/token.middleware';
 import { HealthController } from './health/health.controller';
 
@@ -47,6 +48,8 @@ import { HealthController } from './health/health.controller';
 })
 export class KernelModule implements NestModule {
   configure(consumer: MiddlewareConsumer): void {
-    consumer.apply(MethodAllowlistMiddleware, TokenMiddleware).forRoutes('*');
+    consumer
+      .apply(MethodAllowlistMiddleware, RateLimitMiddleware, TokenMiddleware)
+      .forRoutes('*');
   }
 }

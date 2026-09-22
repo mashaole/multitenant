@@ -4,5 +4,5 @@
   "testRegex": "test/.*\\.e2e-spec\\.ts$",
   "transform": { "^.+\\.ts$": "ts-jest" },
   "testEnvironment": "node",
-  "setupFiles": ["dotenv/config"]
+  "setupFiles": ["dotenv/config", "<rootDir>/test/setup-e2e.ts"]
 }
