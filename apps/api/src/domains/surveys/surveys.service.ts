@@ -7,6 +7,7 @@ import { AppError, ERROR_CODES } from '../../shared/http/error-codes';
 import { paginate, toPage } from '../../shared/http/pagination';
 import { ACTIVITY_EMITTER, IActivityEmitter } from '../../shared/ports/activity.port';
 import { CreateSurveyDto } from './models/create-survey.dto';
+import { isoWeekStart, toDateOnly } from '../../shared/utils/week.util';
 
 @Injectable()
 export class SurveysService {
@@ -38,14 +39,35 @@ export class SurveysService {
   }
 
   async active(auth: TokenClaims) {
+    const weekStart = isoWeekStart();
     const survey = await withTenant(
       this.appPrisma,
       { orgId: auth.orgId, userId: auth.sub, isOrgReader: isOrgReader(auth.permissions) },
-      (tx) =>
-        tx.survey.findFirst({
+      async (tx) => {
+        const active = await tx.survey.findFirst({
           where: { orgId: auth.orgId, isActive: true },
           include: { questions: { orderBy: { position: 'asc' } } },
-        }),
+          orderBy: { createdAt: 'desc' },
+        });
+        if (!active) {
+          return null;
+        }
+        const existing = await tx.response.findUnique({
+          where: {
+            surveyId_userId_weekStart: {
+              surveyId: active.id,
+              userId: auth.sub,
+              weekStart,
+            },
+          },
+          select: { id: true },
+        });
+        return {
+          ...active,
+          submittedThisWeek: Boolean(existing),
+          weekStart: toDateOnly(weekStart),
+        };
+      },
     );
     if (!survey) {
       throw new AppError(ERROR_CODES.NOT_FOUND, 'No active survey', 404);
@@ -57,8 +79,12 @@ export class SurveysService {
     const survey = await withTenant(
       this.appPrisma,
       { orgId: auth.orgId, userId: auth.sub, isOrgReader: isOrgReader(auth.permissions) },
-      (tx) =>
-        tx.survey.create({
+      async (tx) => {
+        await tx.survey.updateMany({
+          where: { orgId: auth.orgId, isActive: true },
+          data: { isActive: false },
+        });
+        return tx.survey.create({
           data: {
             orgId: auth.orgId,
             title: dto.title,
@@ -73,7 +99,8 @@ export class SurveysService {
             },
           },
           include: { questions: true },
-        }),
+        });
+      },
     );
     this.activity.emit({
       orgId: auth.orgId,
