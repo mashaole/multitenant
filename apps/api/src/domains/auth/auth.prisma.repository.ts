@@ -11,12 +11,17 @@ const userInclude = {
 export class AuthPrismaRepository implements IAuthRepository {
   constructor(private readonly prisma: PrismaService) {}
 
-  findActiveUsersByEmail(email: string, orgId?: string): Promise<AuthUserRecord[]> {
+  findActiveUsersByEmail(
+    email: string,
+    organization: string,
+  ): Promise<AuthUserRecord[]> {
     return this.prisma.user.findMany({
       where: {
-        email,
+        email: { equals: email, mode: 'insensitive' },
         deletedAt: null,
-        ...(orgId ? { orgId } : {}),
+        org: {
+          name: { equals: organization, mode: 'insensitive' },
+        },
       },
       include: userInclude,
     });

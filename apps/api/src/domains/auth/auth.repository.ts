@@ -17,7 +17,7 @@ export interface AuthUserRecord {
 export interface IAuthRepository {
   findActiveUsersByEmail(
     email: string,
-    orgId?: string,
+    organization: string,
   ): Promise<AuthUserRecord[]>;
   listActiveSessions(userId: string, now: Date): Promise<Array<{ id: string; createdAt: Date }>>;
   revokeSessions(ids: string[], at: Date): Promise<void>;

@@ -9,6 +9,7 @@ import { ACTIVITY_EMITTER, IActivityEmitter } from '../../shared/ports/activity.
 import { AppError, ERROR_CODES } from '../../shared/http/error-codes';
 import { PrismaService } from '../../shared/prisma/prisma.service';
 import { hashPassword } from '../../shared/crypto/password-hash';
+import { normalizeEmail, normalizeOrgName } from '../../shared/utils/identity';
 
 const TTL = Number(process.env.JWT_TTL_SECONDS ?? 86400);
 
@@ -33,8 +34,13 @@ export class AuthService {
     private readonly prisma: PrismaService,
   ) {}
 
-  async login(email: string, password: string, orgId?: string) {
-    const matches = await this.repo.findActiveUsersByEmail(email, orgId);
+  async login(email: string, password: string, organization: string) {
+    const normalizedEmail = normalizeEmail(email);
+    const orgName = normalizeOrgName(organization);
+    const matches = await this.repo.findActiveUsersByEmail(
+      normalizedEmail,
+      orgName,
+    );
     const user = matches.length === 1 ? matches[0] : null;
     const stored = user?.passwordHash || (await unusedPasswordHash());
     const ok = await this.passwords.verify(password, stored);

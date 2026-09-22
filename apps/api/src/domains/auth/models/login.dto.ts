@@ -1,4 +1,5 @@
-import { IsEmail, IsOptional, IsString, IsUUID, MaxLength, MinLength } from 'class-validator';
+import { Transform } from 'class-transformer';
+import { IsEmail, IsString, MaxLength, MinLength } from 'class-validator';
 
 export class LoginDto {
   @IsEmail()
@@ -10,7 +11,11 @@ export class LoginDto {
   @MaxLength(128)
   password!: string;
 
-  @IsOptional()
-  @IsUUID()
-  orgId?: string;
+  @Transform(({ value }) =>
+    typeof value === 'string' ? value.trim() : value,
+  )
+  @IsString()
+  @MinLength(1)
+  @MaxLength(120)
+  organization!: string;
 }
