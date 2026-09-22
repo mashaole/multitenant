@@ -1,4 +1,4 @@
-import { IsArray, IsInt, IsOptional, IsString, IsUUID, Max, MaxLength, Min } from 'class-validator';
+import { IsArray, IsInt, IsOptional, IsString, IsUUID, Max, MaxLength, Min, MinLength } from 'class-validator';
 
 export class CreateOrgDto {
   @IsString()
@@ -36,6 +36,11 @@ export class CreateUserDto {
 
   @IsUUID()
   roleId!: string;
+
+  @IsString()
+  @MinLength(8)
+  @MaxLength(128)
+  password!: string;
 
   @IsOptional()
   @IsUUID()

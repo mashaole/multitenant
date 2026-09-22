@@ -7,6 +7,5 @@ export interface AuthRequest extends Request {
 
 export const PUBLIC_PATHS = new Set([
   '/auth/login',
-  '/auth/users',
   '/health',
 ]);

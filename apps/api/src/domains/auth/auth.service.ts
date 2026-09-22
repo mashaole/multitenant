@@ -4,12 +4,22 @@ import { AUTH_REPOSITORY, IAuthRepository } from './auth.repository';
 import { CLOCK, IClock } from '../../shared/ports/clock.port';
 import { TOKEN_SIGNER, ITokenSigner } from '../../shared/ports/token-signer.port';
 import { TOKEN_HASHER, ITokenHasher } from '../../shared/ports/token-hasher.port';
+import { PASSWORD_HASHER, IPasswordHasher } from '../../shared/ports/password-hasher.port';
 import { ACTIVITY_EMITTER, IActivityEmitter } from '../../shared/ports/activity.port';
 import { AppError, ERROR_CODES } from '../../shared/http/error-codes';
-import { paginate, toPage } from '../../shared/http/pagination';
 import { PrismaService } from '../../shared/prisma/prisma.service';
+import { hashPassword } from '../../shared/crypto/password-hash';
 
 const TTL = Number(process.env.JWT_TTL_SECONDS ?? 86400);
+
+let dummyHash: string | null = null;
+
+async function unusedPasswordHash(): Promise<string> {
+  if (!dummyHash) {
+    dummyHash = await hashPassword('unused-timing-hash');
+  }
+  return dummyHash;
+}
 
 @Injectable()
 export class AuthService {
@@ -18,14 +28,18 @@ export class AuthService {
     @Inject(CLOCK) private readonly clock: IClock,
     @Inject(TOKEN_SIGNER) private readonly signer: ITokenSigner,
     @Inject(TOKEN_HASHER) private readonly hasher: ITokenHasher,
+    @Inject(PASSWORD_HASHER) private readonly passwords: IPasswordHasher,
     @Inject(ACTIVITY_EMITTER) private readonly activity: IActivityEmitter,
     private readonly prisma: PrismaService,
   ) {}
 
-  async login(userId: string) {
-    const user = await this.repo.findActiveUser(userId);
-    if (!user) {
-      throw new AppError(ERROR_CODES.NOT_FOUND, 'User not found', 404);
+  async login(email: string, password: string, orgId?: string) {
+    const matches = await this.repo.findActiveUsersByEmail(email, orgId);
+    const user = matches.length === 1 ? matches[0] : null;
+    const stored = user?.passwordHash || (await unusedPasswordHash());
+    const ok = await this.passwords.verify(password, stored);
+    if (!user || !ok) {
+      throw new AppError(ERROR_CODES.AUTH_UNAUTHORIZED, 'Invalid credentials', 401);
     }
     const permissions = user.role.perms.map((p) => p.permission.key);
     const now = this.clock.now();
@@ -107,12 +121,5 @@ export class AuthService {
       });
     }
     return { ok: true };
-  }
-
-  listUsers(page?: number, limit?: number) {
-    const { page: nextPage, limit: nextLimit, skip, take } = toPage(page, limit);
-    return this.repo.listPickerUsers(skip, take).then(({ items, total }) =>
-      paginate(items, total, nextPage, nextLimit),
-    );
   }
 }

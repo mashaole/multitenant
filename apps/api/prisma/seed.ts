@@ -1,5 +1,6 @@
 import { PrismaClient, QuestionType } from '@prisma/client';
-import { IDS } from './ids';
+import { IDS, SEED_PASSWORD } from './ids';
+import { hashPassword } from '../src/shared/crypto/password-hash';
 
 const prisma = new PrismaClient();
 
@@ -119,16 +120,19 @@ async function main(): Promise<void> {
   });
 
   const users = [
-    { id: IDS.user.ava, orgId: IDS.org.system, roleId: IDS.role.superAdmin, name: 'Ava Stone', email: 'ava@pulse.local' },
-    { id: IDS.user.maya, orgId: IDS.org.northwind, roleId: IDS.role.manager, name: 'Maya Chen', email: 'maya@northwind.local' },
-    { id: IDS.user.liam, orgId: IDS.org.northwind, roleId: IDS.role.member, name: 'Liam Park', email: 'liam@northwind.local' },
-    { id: IDS.user.nora, orgId: IDS.org.northwind, roleId: IDS.role.member, name: 'Nora Vale', email: 'nora@northwind.local' },
-    { id: IDS.user.jordan, orgId: IDS.org.northwind, roleId: IDS.role.teamLead, name: 'Jordan Reed', email: 'jordan@northwind.local' },
-    { id: IDS.user.priya, orgId: IDS.org.apex, roleId: IDS.role.manager, name: 'Priya Shah', email: 'priya@apex.local' },
-    { id: IDS.user.owen, orgId: IDS.org.apex, roleId: IDS.role.member, name: 'Owen Brooks', email: 'owen@apex.local' },
-    { id: IDS.user.elise, orgId: IDS.org.apex, roleId: IDS.role.member, name: 'Elise Ng', email: 'elise@apex.local' },
+    { id: IDS.user.ava, orgId: IDS.org.system, roleId: IDS.role.superAdmin, name: 'Ava Stone', email: IDS.email.ava },
+    { id: IDS.user.maya, orgId: IDS.org.northwind, roleId: IDS.role.manager, name: 'Maya Chen', email: IDS.email.maya },
+    { id: IDS.user.liam, orgId: IDS.org.northwind, roleId: IDS.role.member, name: 'Liam Park', email: IDS.email.liam },
+    { id: IDS.user.nora, orgId: IDS.org.northwind, roleId: IDS.role.member, name: 'Nora Vale', email: IDS.email.nora },
+    { id: IDS.user.jordan, orgId: IDS.org.northwind, roleId: IDS.role.teamLead, name: 'Jordan Reed', email: IDS.email.jordan },
+    { id: IDS.user.priya, orgId: IDS.org.apex, roleId: IDS.role.manager, name: 'Priya Shah', email: IDS.email.priya },
+    { id: IDS.user.owen, orgId: IDS.org.apex, roleId: IDS.role.member, name: 'Owen Brooks', email: IDS.email.owen },
+    { id: IDS.user.elise, orgId: IDS.org.apex, roleId: IDS.role.member, name: 'Elise Ng', email: IDS.email.elise },
   ];
-  await prisma.user.createMany({ data: users });
+  const passwordHash = await hashPassword(SEED_PASSWORD);
+  await prisma.user.createMany({
+    data: users.map((user) => ({ ...user, passwordHash })),
+  });
 
   await prisma.survey.create({
     data: {

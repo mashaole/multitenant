@@ -1,40 +1,25 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../shared/prisma/prisma.service';
-import { IAuthRepository } from './auth.repository';
+import { AuthUserRecord, IAuthRepository } from './auth.repository';
+
+const userInclude = {
+  org: true,
+  role: { include: { perms: { include: { permission: true } } } },
+} as const;
 
 @Injectable()
 export class AuthPrismaRepository implements IAuthRepository {
   constructor(private readonly prisma: PrismaService) {}
 
-  findActiveUser(userId: string) {
-    return this.prisma.user.findFirst({
-      where: { id: userId, deletedAt: null },
-      include: {
-        org: true,
-        role: { include: { perms: { include: { permission: true } } } },
+  findActiveUsersByEmail(email: string, orgId?: string): Promise<AuthUserRecord[]> {
+    return this.prisma.user.findMany({
+      where: {
+        email,
+        deletedAt: null,
+        ...(orgId ? { orgId } : {}),
       },
+      include: userInclude,
     });
-  }
-
-  async listPickerUsers(skip: number, take: number) {
-    const where = { deletedAt: null };
-    const [items, total] = await Promise.all([
-      this.prisma.user.findMany({
-        where,
-        select: {
-          id: true,
-          name: true,
-          email: true,
-          org: { select: { id: true, name: true } },
-          role: { select: { name: true } },
-        },
-        orderBy: [{ orgId: 'asc' }, { name: 'asc' }],
-        skip,
-        take,
-      }),
-      this.prisma.user.count({ where }),
-    ]);
-    return { items, total };
   }
 
   listActiveSessions(userId: string, now: Date) {

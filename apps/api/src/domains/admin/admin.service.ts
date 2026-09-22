@@ -13,6 +13,7 @@ import { AppError, ERROR_CODES } from '../../shared/http/error-codes';
 import { paginate, toPage } from '../../shared/http/pagination';
 import { ACTIVITY_EMITTER, IActivityEmitter } from '../../shared/ports/activity.port';
 import { CLOCK, IClock } from '../../shared/ports/clock.port';
+import { PASSWORD_HASHER, IPasswordHasher } from '../../shared/ports/password-hasher.port';
 
 @Injectable()
 export class AdminService {
@@ -21,6 +22,7 @@ export class AdminService {
     private readonly appPrisma: AppPrismaService,
     @Inject(ACTIVITY_EMITTER) private readonly activity: IActivityEmitter,
     @Inject(CLOCK) private readonly clock: IClock,
+    @Inject(PASSWORD_HASHER) private readonly passwords: IPasswordHasher,
   ) {}
 
   private tenantWork<T>(
@@ -165,7 +167,7 @@ export class AdminService {
 
   async createUser(
     auth: TokenClaims,
-    input: { name: string; email: string; roleId: string; orgId?: string },
+    input: { name: string; email: string; roleId: string; password: string; orgId?: string },
   ) {
     const orgId = input.orgId ?? auth.orgId;
     if (!canManageTenants(auth.permissions) && orgId !== auth.orgId) {
@@ -199,12 +201,22 @@ export class AdminService {
       roleId: input.roleId,
       name: input.name,
       email: input.email,
+      passwordHash: await this.passwords.hash(input.password),
       updatedBy: auth.sub,
     };
+    const select = {
+      id: true,
+      orgId: true,
+      roleId: true,
+      name: true,
+      email: true,
+      createdAt: true,
+      lastLogin: true,
+    } as const;
     try {
       const user = canManageTenants(auth.permissions)
-        ? await this.prisma.user.create({ data })
-        : await this.tenantWork(auth, (tx) => tx.user.create({ data }));
+        ? await this.prisma.user.create({ data, select })
+        : await this.tenantWork(auth, (tx) => tx.user.create({ data, select }));
       this.activity.emit({
         orgId,
         userId: auth.sub,

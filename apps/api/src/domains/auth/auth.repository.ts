@@ -8,26 +8,17 @@ export interface AuthUserRecord {
   roleId: string;
   name: string;
   email: string;
+  passwordHash: string;
   deletedAt: Date | null;
   org: { id: string; name: string; maxSessionsPerUser: number };
   role: { id: string; name: string; perms: Array<{ permission: { key: string } }> };
 }
 
 export interface IAuthRepository {
-  findActiveUser(userId: string): Promise<AuthUserRecord | null>;
-  listPickerUsers(
-    skip: number,
-    take: number,
-  ): Promise<{
-    items: Array<{
-      id: string;
-      name: string;
-      email: string;
-      org: { id: string; name: string };
-      role: { name: string };
-    }>;
-    total: number;
-  }>;
+  findActiveUsersByEmail(
+    email: string,
+    orgId?: string,
+  ): Promise<AuthUserRecord[]>;
   listActiveSessions(userId: string, now: Date): Promise<Array<{ id: string; createdAt: Date }>>;
   revokeSessions(ids: string[], at: Date): Promise<void>;
   createSession(data: {

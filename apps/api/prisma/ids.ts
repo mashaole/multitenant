@@ -1,3 +1,5 @@
+export const SEED_PASSWORD = 'Pulse!dev1';
+
 export const IDS = {
   org: {
     system: '00000000-0000-4000-8000-000000000001',
@@ -29,5 +31,15 @@ export const IDS = {
     nw2: '31000000-0000-4000-8000-0000000000a2',
     ap1: '31000000-0000-4000-8000-0000000000b1',
     ap2: '31000000-0000-4000-8000-0000000000b2',
+  },
+  email: {
+    ava: 'ava@pulse.local',
+    maya: 'maya@northwind.local',
+    liam: 'liam@northwind.local',
+    nora: 'nora@northwind.local',
+    jordan: 'jordan@northwind.local',
+    priya: 'priya@apex.local',
+    owen: 'owen@apex.local',
+    elise: 'elise@apex.local',
   },
 };
