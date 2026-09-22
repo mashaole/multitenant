@@ -30,16 +30,30 @@ export class ActivityQueryService {
       this.appPrisma,
       { orgId: auth.orgId, userId: auth.sub, isOrgReader: isOrgReader(auth.permissions) },
       async (tx) => {
-        const [items, total] = await Promise.all([
+        const [rows, total] = await Promise.all([
           tx.activityLog.findMany({
             where,
-            include: { user: { select: { name: true } } },
             orderBy: { createdAt: 'desc' },
             skip,
             take,
           }),
           tx.activityLog.count({ where }),
         ]);
+        // Do not `include: { user }` — cross-org actors (e.g. SUPER_ADMIN
+        // granting modules) are invisible under user RLS and Prisma then 500s.
+        const userIds = [...new Set(rows.map((row) => row.userId))];
+        const visibleUsers =
+          userIds.length === 0
+            ? []
+            : await tx.user.findMany({
+                where: { id: { in: userIds } },
+                select: { id: true, name: true },
+              });
+        const nameById = new Map(visibleUsers.map((u) => [u.id, u.name]));
+        const items = rows.map((row) => ({
+          ...row,
+          user: { name: nameById.get(row.userId) ?? 'Platform admin' },
+        }));
         return paginate(items, total, page, limit);
       },
     );
