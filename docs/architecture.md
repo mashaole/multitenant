@@ -25,7 +25,7 @@ controller → service → repository port → Prisma adapter
 
 ## Isolation
 
-1. App: tenant queries add `orgId` from the JWT. Identity is `users.id`, not email. Active email uniqueness is `(orgId, email)` so two orgs can share an address as two accounts.
+1. App: tenant queries add `orgId` from the JWT. Identity is `users.id`, not email. Login is email + password; active email uniqueness is `(orgId, email)` so two orgs can share an address as two accounts.
 2. RLS (SQL): org match on every tenant table. User-owned tables (sessions, responses, answers, activity) also require `user_id = current_user` **or** `app.is_org_reader = true`.
 3. Policies never mention role names. `withTenant` sets three transaction-local GUCs: `app.current_org_id`, `app.current_user_id`, `app.is_org_reader`. Dropping ADMIN did not change SQL.
 

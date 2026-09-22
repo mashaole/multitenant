@@ -34,7 +34,7 @@ A user belongs to exactly one organization. The same email may exist in another 
 
 ## API
 
-Public (no token): `POST /auth/login`, `GET /auth/users`, `GET /health`.
+Public (no token): `POST /auth/login`, `GET /health`.
 
 Protected (token then permission):
 
@@ -60,7 +60,9 @@ Protected (token then permission):
 
 List endpoints return `{ items, page, limit, total }`. Query `page` (min 1, default 1) and `limit` (1–100, default 20).
 
-`POST /auth/login` `{ userId }` → `{ token, expiresAt, user, org }`.
+`POST /auth/login` `{ email, password, orgId? }` → `{ token, expiresAt, user, org }`. `orgId` is required only when the same email exists in two organizations. Wrong or unknown credentials → 401 `Invalid credentials` (no email oracle). Password hashes are never returned.
+
+`POST /users` `{ name, email, password, roleId, orgId? }`. Password min 8; stored as scrypt; never returned.
 
 `POST /surveys` `{ title, questions: [{ text, type, position }] }` max 3 questions.
 
@@ -72,7 +74,7 @@ List endpoints return `{ items, page, limit, total }`. Query `page` (min 1, defa
 
 ## Ports
 
-`ILogger`, `ITokenSigner`, `ITokenHasher`, `IClock`, `IActivityEmitter`, `I<Domain>Repository`.
+`ILogger`, `ITokenSigner`, `ITokenHasher`, `IPasswordHasher`, `IClock`, `IActivityEmitter`, `I<Domain>Repository`.
 
 ## Seed
 

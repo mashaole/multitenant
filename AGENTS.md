@@ -19,7 +19,7 @@ This repository is a multi-tenant pulse survey slice. Follow these constraints o
 
 ## HTTP
 
-- Public routes only: `POST /auth/login`, `GET /auth/users`, `GET /health`.
+- Public routes only: `POST /auth/login`, `GET /health`.
 - Protected routes: token middleware, then permission middleware.
 - Never use `@All()`. Allowed methods: GET, POST, PUT, PATCH, DELETE (+ OPTIONS).
 - Errors always `{ error: { code, message, details? } }`. Never leak stack, SQL, tokens, or env.

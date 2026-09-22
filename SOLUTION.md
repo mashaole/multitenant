@@ -8,7 +8,7 @@
 
 Hybrid: application `orgId` (JWT + Prisma extension) and PostgreSQL RLS on `pulse_app`.
 
-Login is by `userId`. Email is not a global identity: unique among active users per `orgId` only. Two tenants may share an address as two users with separate sessions and JWTs.
+Login is by **email + password**. Email is not a global identity: unique among active users per `orgId` only. Two tenants may share an address as two users with separate sessions and JWTs; then `orgId` is required on login. Passwords are stored as scrypt hashes and never returned.
 
 - Org policy on every tenant table: `org_id = current_org` (fail-closed if unset).
 - User policy on responses, answers, sessions, activity: org match and (`user_id = current_user` or `is_org_reader`).
@@ -40,7 +40,7 @@ Services depend on `ILogger`, `ITokenSigner`, `ITokenHasher`, `IClock`, `IActivi
 - No org soft-delete.
 - JWT permission snapshot until re-login; add refresh or short TTL.
 - Activity outbox / SQS if the process must not drop a log.
-- OIDC instead of demo login.
+- OIDC instead of password login.
 - Schema-per-tenant only if an enterprise tier needs it.
 
 ## AWS (design only)
@@ -99,15 +99,59 @@ Transactional outbox is the next hardening if we must not drop a produce after c
 ## Threat model (STRIDE-lite)
 
 - Assets: JWTs, session hashes, tenant survey/response data, role grants, audit trail.
-- Threats: replayed JWT, `alg=none`, privilege escalation via custom roles, secrets in logs/errors, cross-tenant or cross-user reads, verb smuggling.
-- Mitigations: hashed tokens, revoke/expiry/org cap, token then permission middleware, method allowlist, DTO whitelist, error filter, activity allowlist, soft-delete + session revoke, RLS + app `orgId`.
+- Threats: replayed JWT, `alg=none`, password stuffing / email oracle, privilege escalation via custom roles, secrets in logs/errors, cross-tenant or cross-user reads, verb smuggling.
+- Mitigations: hashed tokens, scrypt passwords + dummy verify + generic 401, revoke/expiry/org cap, token then permission middleware, method allowlist, DTO whitelist, error filter, activity allowlist, soft-delete + session revoke, RLS + app `orgId`.
 - Residual: demo JWT secret is local-only; async activity can drop one row on crash.
 
 ## AI workflow
 
 Built in Cursor. Task setup: written SPEC and AGENTS.md first (this file). Work was split: scaffold → schema/RLS → kernel → domains → tests → UI → Postman.
 
-Delegated to the agent: boilerplate, Prisma schema, Nest modules, React pages. Kept for human review: isolation rules, RLS vs RBAC, session cap, error envelope, what not to log.
+Delegated to the agent: boilerplate, Prisma schema, Nest modules, React pages. Kept for human review: isolation rules, RLS vs RBAC, session cap, error envelope.
+
+### Skills and rules used
+
+Cursor routed work through orchestrators, then loaded only the skills that matched the layer being changed. Repo constraints in `AGENTS.md` always won over generic advice.
+
+**Orchestrators**
+
+| Orchestrator | When |
+|---|---|
+| `software-engineering-orchestrator` | API, Prisma, RLS, auth, tests, AWS design |
+| `design-ux-orchestrator` | React SPA: pages, pager, **email/password login**, error fallbacks |
+
+**Skills**
+
+| Skill | What it enforced |
+|---|---|
+| `threat-modeling-global` | STRIDE-lite on JWT, RBAC, tenant isolation, SQS payloads |
+| `bug-feature-default-workflow` | Validation, 4xx envelopes, bounds (`page`/`limit`, session cap) |
+| `backwards-compatible-scalable` | Pagination envelope, email uniqueness as a new migration |
+| `database-architecture` | Hybrid `orgId` + RLS, partial unique `(orgId, email)` |
+| `sql-optimization-compatible` | Parameterized Prisma, tenant indexes, no concatenated SQL |
+| `software-architecture` | Ports/adapters, domain modules, Fargate workers behind the same activity port |
+| `system-design-primer` | ALB not API Gateway, CloudFront for static only, SQS off the request path |
+| `optimal-complexity` | Offset pagination, O(1) role-assignability check |
+| `dependency-hygiene-global` | No extra packages for pagination or role isolation |
+| `accidental-data-loss-prevention` | Soft-delete users; unique-index swap is not a table drop |
+| `frontend-standards` | React + TypeScript: `function` components, kebab-case files, `handle*` / `use*` / `is*` names, typed props, no unused imports |
+| `essential-design-principles` | Novice-first product UI, loading/error/empty states, keyboard-usable pager, module-denied copy stays on-page |
+| `conventional-logical-commits` | Small feat/fix batches |
+| `skills-provenance` | Disclose skills/rules on each change |
+
+**Rules**
+
+| Rule | What it enforced |
+|---|---|
+| `AGENTS.md` | Tenant `orgId`, `withTenant`, layers, public routes, activity allowlist, e2e gates |
+| `security-auto-orchestration` | Load threat modeling without being asked |
+| `default-architecture-thinking` | Isolation, indexes, async activity vs request path |
+| `global-skills-orchestrators` | Route API vs UI through the matching orchestrator |
+| `skills-provenance-footer` | End-of-turn `Applied:` line |
+| `pattern-rationale-note` | Why a helper/index was chosen over a heavier alternative |
+| User React/TS conventions | Functional React, strict equality, `AuthContext` over a global store, semantic lists/forms |
+
+There is no skill named `react`. The React/TypeScript bar is `frontend-standards`, loaded by `design-ux-orchestrator`. `nextjs-performance` was not used: the web app is Vite + React Router, not Next.js. Shadcn/Tailwind from that skill were not applied; the UI uses the existing CSS in `apps/web/src/styles.css`.
 
 ### Validation
 

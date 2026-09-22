@@ -26,18 +26,18 @@ npm run dev
 
 ## Seeded users
 
-Pick a user on `/login`. Default session cap is **1** per org (a second login as the same user revokes the first JWT).
+Pick a user on `/login` with **email + password**. Seeded password for every demo user: `Pulse!dev1`. Default session cap is **1** per org (a second login as the same user revokes the first JWT).
 
-| Name | Role | Org | Notes |
+| Name | Email | Role | Org | Notes |
 |---|---|---|---|
-| Ava Stone | SUPER_ADMIN | System | Create orgs, grant modules, add managers |
-| Maya Chen | MANAGER | Northwind Retail | Surveys, submit, summary, roles, people (including managers) |
-| Liam Park | MEMBER | Northwind Retail | Submit pulse |
-| Nora Vale | MEMBER | Northwind Retail | Submit pulse |
-| Jordan Reed | Team Lead | Northwind Retail | Custom role with `summary:read` |
-| Priya Shah | MANAGER | Apex Mining | No summary module |
-| Owen Brooks | MEMBER | Apex Mining | Submit pulse |
-| Elise Ng | MEMBER | Apex Mining | Submit pulse |
+| Ava Stone | ava@pulse.local | SUPER_ADMIN | System | Create orgs, grant modules, add managers |
+| Maya Chen | maya@northwind.local | MANAGER | Northwind Retail | Surveys, submit, summary, roles, people (including managers) |
+| Liam Park | liam@northwind.local | MEMBER | Northwind Retail | Submit pulse |
+| Nora Vale | nora@northwind.local | MEMBER | Northwind Retail | Submit pulse |
+| Jordan Reed | jordan@northwind.local | Team Lead | Northwind Retail | Custom role with `summary:read` |
+| Priya Shah | priya@apex.local | MANAGER | Apex Mining | No summary module |
+| Owen Brooks | owen@apex.local | MEMBER | Apex Mining | Submit pulse |
+| Elise Ng | elise@apex.local | MEMBER | Apex Mining | Submit pulse |
 
 ## Demo checklist
 
