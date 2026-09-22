@@ -1,6 +1,6 @@
 # Pulse surveys — specification
 
-Frozen before implementation. Code follows this contract.
+Frozen before implementation. Code follows this contract. Sequence and design notes: [PLAN.md](PLAN.md).
 
 ## Actors
 
@@ -11,7 +11,7 @@ Frozen before implementation. Code follows this contract.
 | MEMBER | Tenant | responses:submit, surveys:read |
 | Custom role | Tenant | subset of the actor's permissions |
 
-A user belongs to exactly one organization. The same email may exist in another organization as a different user (separate `id`, sessions, and data). Active emails are unique per organization.
+A user belongs to exactly one organization. The same email may exist in another organization as a different user (separate `id`, sessions, and data). Active emails are unique per organization, **case-insensitive**. Organization names are unique, **case-insensitive**.
 
 ## Invariants
 
@@ -19,7 +19,7 @@ A user belongs to exactly one organization. The same email may exist in another 
 2. A member cannot read another member's responses, answers, sessions, or activity (`userId` + RLS). SUPER_ADMIN / MANAGER are not blocked: `is_org_reader` is true when their permission set intersects `{ summary:read, activity:read, users:create, users:delete, orgs:update, orgs:create, modules:manage }`.
 3. One response per member per survey per ISO week (Monday start). Unique `(surveyId, userId, weekStart)`.
 4. At most three questions per survey. Types: `RATING` (1–5) and `YES_NO`.
-5. Users are soft-deleted (`deletedAt`). Responses and activity keep `userId`. Active `(orgId, email)` is unique; a soft-deleted address may be reused in that org.
+5. Users are soft-deleted (`deletedAt`). Responses and activity keep `userId`. Active `(orgId, lower(email))` is unique; a soft-deleted address may be reused in that org. Organization `lower(name)` is unique.
 6. Sessions: JWT + `Session` row (`jti`, hash, expiry, revoke). Org `maxSessionsPerUser` default **1**, range 1–20.
 7. You cannot grant permissions you do not have (superset guard).
 8. Disabled org module → 403 `FORBIDDEN_MODULE`.
@@ -27,10 +27,11 @@ A user belongs to exactly one organization. The same email may exist in another 
 10. Multi-write business operations run in one transaction. Throw rolls back. Activity is not in that transaction.
 11. SQL is parameterized only.
 12. HTTP methods are explicit. Unknown verbs → 405. Invalid schema → 422. Errors: `{ error: { code, message, details? } }` with no internals.
+13. Every HTTP route except OPTIONS is rate-limited per client IP. `POST /auth/login` uses a tighter bucket. Over limit → 429 `RATE_LIMITED`.
 
 ## Error codes
 
-`METHOD_NOT_ALLOWED`, `AUTH_UNAUTHORIZED`, `AUTH_TOKEN_EXPIRED`, `AUTH_TOKEN_REVOKED`, `FORBIDDEN_PERMISSION`, `FORBIDDEN_MODULE`, `NOT_FOUND`, `CONFLICT_DUPLICATE`, `VALIDATION_FAILED`, `INTERNAL`.
+`METHOD_NOT_ALLOWED`, `AUTH_UNAUTHORIZED`, `AUTH_TOKEN_EXPIRED`, `AUTH_TOKEN_REVOKED`, `FORBIDDEN_PERMISSION`, `FORBIDDEN_MODULE`, `NOT_FOUND`, `CONFLICT_DUPLICATE`, `VALIDATION_FAILED`, `RATE_LIMITED`, `INTERNAL`.
 
 ## API
 
@@ -44,6 +45,7 @@ Protected (token then permission):
 | GET | /permissions | authenticated |
 | GET | /roles | roles:read |
 | POST | /roles | roles:create |
+| DELETE | /roles/:id | roles:create |
 | POST | /orgs | orgs:create |
 | GET | /orgs | orgs:create |
 | PUT | /orgs/:id/modules | modules:manage |
@@ -60,9 +62,11 @@ Protected (token then permission):
 
 List endpoints return `{ items, page, limit, total }`. Query `page` (min 1, default 1) and `limit` (1–100, default 20).
 
-`POST /auth/login` `{ email, password, orgId? }` → `{ token, expiresAt, user, org }`. `orgId` is required only when the same email exists in two organizations. Wrong or unknown credentials → 401 `Invalid credentials` (no email oracle). Password hashes are never returned.
+`POST /auth/login` `{ email, password, organization }` → `{ token, expiresAt, user, org }`. `organization` is the organization **name** (case-insensitive) and is **always required**. The login form always shows the field. Missing or blank → 422 `VALIDATION_FAILED` (schema, not an email-existence signal). Wrong email, password, or org name → 401 `Invalid credentials` (no email oracle, no multi-org oracle). Password hashes are never returned. Emails are stored lowercase.
 
 `POST /users` `{ name, email, password, roleId, orgId? }`. Password min 8; stored as scrypt; never returned.
+
+`DELETE /roles/:id` removes a custom role in the actor's organization. System roles → 403. Any remaining user (including soft-deleted) → 409. Cross-org ids → 404.
 
 `POST /surveys` `{ title, questions: [{ text, type, position }] }` max 3 questions.
 

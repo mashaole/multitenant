@@ -8,12 +8,12 @@
 
 Hybrid: application `orgId` (JWT + Prisma extension) and PostgreSQL RLS on `pulse_app`.
 
-Login is by **email + password**. Email is not a global identity: unique among active users per `orgId` only. Two tenants may share an address as two users with separate sessions and JWTs; then `orgId` is required on login. Passwords are stored as scrypt hashes and never returned.
+Login is by **email + password + organization name**. Email is not a global identity: unique among active users per `orgId`, ignoring case. Two tenants may share an address as two users with separate sessions and JWTs. Organization is always required on login (and always shown on the form) so a missing field cannot reveal that an address exists in more than one org. Organization names are unique ignoring case. Passwords are stored as scrypt hashes and never returned.
 
 - Org policy on every tenant table: `org_id = current_org` (fail-closed if unset).
 - User policy on responses, answers, sessions, activity: org match and (`user_id = current_user` or `is_org_reader`).
 - `is_org_reader` is derived from permissions so SUPER_ADMIN and MANAGER are not blocked from summary, user delete, or session revoke.
-- Custom roles are org-owned: listed and assigned only in the creating org. System roles (`orgId` null) are global. Super-admin user create still checks `role.orgId` against the target org so a guessed UUID cannot attach another tenant's role.
+- Custom roles are org-owned: listed, assigned, and deleted only in the creating org. System roles (`orgId` null) are global and cannot be deleted. Super-admin user create still checks `role.orgId` against the target org so a guessed UUID cannot attach another tenant's role.
 - Cross-tenant admin uses the privileged client.
 
 ## Auth
@@ -24,6 +24,8 @@ JWT (HS256) carries `sub`, `orgId`, `roleId`, `roleName`, `permissions`, `jti`. 
 
 Permission changes apply on the next login (JWT is a snapshot).
 
+Every route except OPTIONS is rate-limited per client IP (in-process fixed window). Default 100 requests / 60s; `POST /auth/login` 10 / 60s. Over limit → 429 `RATE_LIMITED` plus `Retry-After`. Behind ALB, `trust proxy` uses the first forwarded hop. Multi-instance later: same counters in Redis; no Redis on the request path in this slice.
+
 ## ACID
 
 `withTenant` is one interactive transaction for business rows. Throw rolls back. Repositories receive the `tx` client and do not nest transactions.
@@ -32,7 +34,7 @@ Activity is **not** in that transaction. After commit the service calls `IActivi
 
 ## Ports
 
-Services depend on `ILogger`, `ITokenSigner`, `ITokenHasher`, `IClock`, `IActivityEmitter`, and domain repositories. Nest singleton adapters bind the concrete Prisma / JWT / console implementations.
+Services depend on `ILogger`, `ITokenSigner`, `ITokenHasher`, `IPasswordHasher`, `IClock`, `IActivityEmitter`, and domain repositories. Nest singleton adapters bind the concrete Prisma / JWT / console implementations.
 
 ## Known gaps / next steps
 
@@ -99,13 +101,13 @@ Transactional outbox is the next hardening if we must not drop a produce after c
 ## Threat model (STRIDE-lite)
 
 - Assets: JWTs, session hashes, tenant survey/response data, role grants, audit trail.
-- Threats: replayed JWT, `alg=none`, password stuffing / email oracle, privilege escalation via custom roles, secrets in logs/errors, cross-tenant or cross-user reads, verb smuggling.
-- Mitigations: hashed tokens, scrypt passwords + dummy verify + generic 401, revoke/expiry/org cap, token then permission middleware, method allowlist, DTO whitelist, error filter, activity allowlist, soft-delete + session revoke, RLS + app `orgId`.
-- Residual: demo JWT secret is local-only; async activity can drop one row on crash.
+- Threats: replayed JWT, `alg=none`, password stuffing / email oracle, multi-org enumeration via a delayed organization field, privilege escalation via custom roles, secrets in logs/errors, cross-tenant or cross-user reads, verb smuggling.
+- Mitigations: hashed tokens, scrypt passwords + dummy verify + generic 401, organization always required, per-IP rate limits (tighter on login), revoke/expiry/org cap, token then permission middleware, method allowlist, DTO whitelist, error filter, activity allowlist, soft-delete + session revoke, RLS + app `orgId`.
+- Residual: demo JWT secret is local-only; async activity can drop one row on crash; in-process rate counters are per instance.
 
 ## AI workflow
 
-Built in Cursor. Task setup: written SPEC and AGENTS.md first (this file). Work was split: scaffold → schema/RLS → kernel → domains → tests → UI → Postman.
+Built in Cursor. Task setup: written [PLAN.md](PLAN.md) at the repo root, [SPEC.md](SPEC.md), [AGENTS.md](AGENTS.md), and this file first. Work was split: scaffold → schema/RLS → kernel → domains → tests → UI → Postman.
 
 Delegated to the agent: boilerplate, Prisma schema, Nest modules, React pages. Kept for human review: isolation rules, RLS vs RBAC, session cap, error envelope.
 
@@ -126,14 +128,14 @@ Cursor routed work through orchestrators, then loaded only the skills that match
 |---|---|
 | `threat-modeling-global` | STRIDE-lite on JWT, RBAC, tenant isolation, SQS payloads |
 | `bug-feature-default-workflow` | Validation, 4xx envelopes, bounds (`page`/`limit`, session cap) |
-| `backwards-compatible-scalable` | Pagination envelope, email uniqueness as a new migration |
-| `database-architecture` | Hybrid `orgId` + RLS, partial unique `(orgId, email)` |
+| `backwards-compatible-scalable` | Pagination envelope; uniqueness lives in the init schema (no follow-up ALTER) |
+| `database-architecture` | Hybrid `orgId` + RLS, partial unique `(orgId, lower(email))`, unique `lower(org.name)` |
 | `sql-optimization-compatible` | Parameterized Prisma, tenant indexes, no concatenated SQL |
 | `software-architecture` | Ports/adapters, domain modules, Fargate workers behind the same activity port |
 | `system-design-primer` | ALB not API Gateway, CloudFront for static only, SQS off the request path |
 | `optimal-complexity` | Offset pagination, O(1) role-assignability check |
 | `dependency-hygiene-global` | No extra packages for pagination or role isolation |
-| `accidental-data-loss-prevention` | Soft-delete users; unique-index swap is not a table drop |
+| `accidental-data-loss-prevention` | Soft-delete users; schema changes land in init while the DB is empty |
 | `frontend-standards` | React + TypeScript: `function` components, kebab-case files, `handle*` / `use*` / `is*` names, typed props, no unused imports |
 | `essential-design-principles` | Novice-first product UI, loading/error/empty states, keyboard-usable pager, module-denied copy stays on-page |
 | `conventional-logical-commits` | Small feat/fix batches |
@@ -157,8 +159,8 @@ There is no skill named `react`. The React/TypeScript bar is `frontend-standards
 
 Implemented and checked after the build:
 
-- Unit tests: week helper, permission subset, access service (in-memory repo) — 9 passed.
-- API e2e: health, 405/TRACE, 422 envelope without stack/SQL, cross-org 404, Apex `FORBIDDEN_MODULE`, member cannot create surveys, idempotent submit + 409, manager summary, superset guard, session-cap revoke, logout revoke, invalid answer leaves no leftover row, SQL-looking title stored as text, activity has no token/email material — 15 passed.
-- Newman: health, Liam login + active survey, Maya summary + activity, Priya summary module denied — 0 failed.
-- Browser (localhost:5173): login picker; Liam submit (“Saved for this week.”); Maya summary (2 of 2, 100%, rating avg + yes/no counts), roles catalog, people, settings, activity; Priya summary shows “This module is not enabled…” with Retry and the shell stays up; Ava orgs list with module checkboxes (Apex summary off).
+- Unit tests: week helper, pagination, permission subset, password hash, access service (in-memory repo, including role-delete guards), rate-limit window — 25 passed.
+- API e2e: postman, health chesks , 405/TRACE, 422 envelope without stack/SQL, wrong-password 401, mixed-case email login, duplicate org name 409, no public `/auth/users`, cross-org 404, Apex `FORBIDDEN_MODULE`, member cannot create surveys, idempotent submit + 409, manager summary, superset guard, custom-role org isolation, role delete 409/403/404, session-cap revoke, logout revoke, settings bounds, manager cannot patch another org cap, expired session 401, per-org emails + missing organization 422 (unique and shared), rate-limit 429, invalid answer leaves no leftover row, SQL-looking title stored as text, activity has no token/email material — 29 passed.
+- Newman: health, Liam login + active survey, Maya summary + activity, Maya cannot patch Apex session cap, Priya summary module denied — 0 failed.
+- Browser (localhost:5173): email/password/organization login (field always visible); Liam submit (“Saved for this week.”); Maya summary, roles catalog with custom-role remove, people, settings, activity; Priya summary shows “This module is not enabled…” with Retry and the shell stays up; Ava orgs list with module checkboxes (Apex summary off).
 - Residual observed: JWT is still a permission snapshot; async activity can drop a log on crash; demo secret is local-only.

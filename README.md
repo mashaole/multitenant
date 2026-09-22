@@ -26,7 +26,7 @@ npm run dev
 
 ## Seeded users
 
-Pick a user on `/login` with **email + password**. Seeded password for every demo user: `Pulse!dev1`. Default session cap is **1** per org (a second login as the same user revokes the first JWT).
+Sign in on `/login` with **email, password, and organization name** (for example `Northwind Retail`). Seeded password for every demo user: `Pulse!dev1`. Default session cap is **1** per org (a second login as the same user revokes the first JWT).
 
 | Name | Email | Role | Org | Notes |
 |---|---|---|---|
@@ -64,6 +64,7 @@ Import `postman/pulse.postman_collection.json` with `postman/local.postman_envir
 
 ## Docs
 
+- [PLAN.md](PLAN.md) — implementation plan
 - [SPEC.md](SPEC.md) — contract
 - [SOLUTION.md](SOLUTION.md) — decisions, AWS note, AI workflow
 - [docs/architecture.md](docs/architecture.md)

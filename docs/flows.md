@@ -48,7 +48,7 @@ sequenceDiagram
   participant Web
   participant Auth
   participant DB
-  Web->>Auth: POST /auth/login email password orgId?
+  Web->>Auth: POST /auth/login email password organization
   Auth->>DB: load user role permissions org
   Auth->>DB: revoke oldest sessions if at org cap
   Auth->>DB: insert Session hash plus lastLogin

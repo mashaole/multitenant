@@ -1,6 +1,6 @@
 # Agent instructions
 
-This repository is a multi-tenant pulse survey slice. Follow these constraints on every change.
+This repository is a multi-tenant pulse survey slice. Follow these constraints on every change. Sequence and coverage: [PLAN.md](PLAN.md). Frozen contract: [SPEC.md](SPEC.md).
 
 ## Isolation
 
@@ -21,6 +21,7 @@ This repository is a multi-tenant pulse survey slice. Follow these constraints o
 
 - Public routes only: `POST /auth/login`, `GET /health`.
 - Protected routes: token middleware, then permission middleware.
+- Rate-limit every route except OPTIONS (global per-IP window; tighter window on `POST /auth/login`). 429 `{ error: { code: RATE_LIMITED, message } }`.
 - Never use `@All()`. Allowed methods: GET, POST, PUT, PATCH, DELETE (+ OPTIONS).
 - Errors always `{ error: { code, message, details? } }`. Never leak stack, SQL, tokens, or env.
 
@@ -34,4 +35,4 @@ This repository is a multi-tenant pulse survey slice. Follow these constraints o
 ## Tests
 
 - Service unit tests bind in-memory fakes of ports.
-- e2e must cover cross-org isolation, member-to-member isolation, RBAC, module gates, idempotency, 405, 422.
+- e2e must cover cross-org isolation, member-to-member isolation, RBAC, module gates, idempotency, 405, 422, 429.
