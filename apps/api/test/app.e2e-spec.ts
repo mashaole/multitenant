@@ -4,6 +4,8 @@ import { createApp } from '../src/create-app';
 import { IDS } from '../prisma/ids';
 import { ACTIVITY_EMITTER } from '../src/shared/ports/activity.port';
 import { IActivityEmitter } from '../src/shared/ports/activity.port';
+import { AppPrismaService } from '../src/shared/prisma/prisma.service';
+import { withTenant } from '../src/shared/tenant/with-tenant';
 
 describe('pulse api (e2e)', () => {
   let app: INestApplication;
@@ -201,8 +203,60 @@ describe('pulse api (e2e)', () => {
     await request(app.getHttpServer())
       .patch(`/orgs/${IDS.org.northwind}/settings`)
       .set('Authorization', `Bearer ${token}`)
-      .send({ maxSessionsPerUser: 21 })
+      .send({ maxSessionsPerUser: 0 })
       .expect(422);
+    await request(app.getHttpServer())
+      .patch(`/orgs/${IDS.org.apex}/settings`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({ maxSessionsPerUser: 2 })
+      .expect(403);
+  });
+
+  it('duplicate email conflicts and soft-delete is idempotent', async () => {
+    const token = await login(IDS.user.maya);
+    const email = `kit-${Date.now()}@northwind.local`;
+    const created = await request(app.getHttpServer())
+      .post('/users')
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        name: 'Kit Rowe',
+        email,
+        roleId: IDS.role.member,
+      })
+      .expect(201);
+    await request(app.getHttpServer())
+      .post('/users')
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        name: 'Kit Two',
+        email,
+        roleId: IDS.role.member,
+      })
+      .expect(409);
+    await request(app.getHttpServer())
+      .delete(`/users/${created.body.id}`)
+      .set('Authorization', `Bearer ${token}`)
+      .expect(200);
+    const second = await request(app.getHttpServer())
+      .delete(`/users/${created.body.id}`)
+      .set('Authorization', `Bearer ${token}`)
+      .expect(200);
+    expect(second.body.unchanged).toBe(true);
+  });
+
+  it('member cannot see another member response through RLS', async () => {
+    const prisma = app.get(AppPrismaService);
+    const rows = await withTenant(
+      prisma,
+      {
+        orgId: IDS.org.northwind,
+        userId: IDS.user.liam,
+        isOrgReader: false,
+      },
+      (tx) => tx.response.findMany({ where: { orgId: IDS.org.northwind } }),
+    );
+    expect(rows.every((row) => row.userId === IDS.user.liam)).toBe(true);
+    expect(rows.some((row) => row.userId === IDS.user.nora)).toBe(false);
   });
 
   it('injection payload is not executed', async () => {
