@@ -56,7 +56,7 @@
         "header": [{ "key": "Content-Type", "value": "application/json" }],
         "body": {
           "mode": "raw",
-          "raw": "{ \"userId\": \"not-a-uuid\", \"extra\": \"x\" }"
+          "raw": "{ \"email\": \"not-an-email\", \"extra\": \"x\" }"
         },
         "url": "{{baseUrl}}/auth/login"
       }
@@ -81,7 +81,7 @@
         "header": [{ "key": "Content-Type", "value": "application/json" }],
         "body": {
           "mode": "raw",
-          "raw": "{ \"userId\": \"{{liamId}}\" }"
+          "raw": "{ \"email\": \"{{liamEmail}}\", \"password\": \"{{password}}\" }"
         },
         "url": "{{baseUrl}}/auth/login"
       }
@@ -146,7 +146,7 @@
         "header": [{ "key": "Content-Type", "value": "application/json" }],
         "body": {
           "mode": "raw",
-          "raw": "{ \"userId\": \"{{noraId}}\" }"
+          "raw": "{ \"email\": \"{{noraEmail}}\", \"password\": \"{{password}}\" }"
         },
         "url": "{{baseUrl}}/auth/login"
       }
@@ -223,7 +223,7 @@
         "header": [{ "key": "Content-Type", "value": "application/json" }],
         "body": {
           "mode": "raw",
-          "raw": "{ \"userId\": \"{{mayaId}}\" }"
+          "raw": "{ \"email\": \"{{mayaEmail}}\", \"password\": \"{{password}}\" }"
         },
         "url": "{{baseUrl}}/auth/login"
       }
@@ -338,7 +338,7 @@
         "header": [{ "key": "Content-Type", "value": "application/json" }],
         "body": {
           "mode": "raw",
-          "raw": "{ \"userId\": \"{{priyaId}}\" }"
+          "raw": "{ \"email\": \"{{priyaEmail}}\", \"password\": \"{{password}}\" }"
         },
         "url": "{{baseUrl}}/auth/login"
       }
@@ -380,7 +380,7 @@
         "header": [{ "key": "Content-Type", "value": "application/json" }],
         "body": {
           "mode": "raw",
-          "raw": "{ \"userId\": \"{{owenId}}\" }"
+          "raw": "{ \"email\": \"{{owenEmail}}\", \"password\": \"{{password}}\" }"
         },
         "url": "{{baseUrl}}/auth/login"
       }
@@ -400,7 +400,7 @@
         "header": [{ "key": "Content-Type", "value": "application/json" }],
         "body": {
           "mode": "raw",
-          "raw": "{ \"userId\": \"{{owenId}}\" }"
+          "raw": "{ \"email\": \"{{owenEmail}}\", \"password\": \"{{password}}\" }"
         },
         "url": "{{baseUrl}}/auth/login"
       }

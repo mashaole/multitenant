@@ -1,7 +1,7 @@
 import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { createApp } from '../src/create-app';
-import { IDS } from '../prisma/ids';
+import { IDS, SEED_PASSWORD } from '../prisma/ids';
 import { ACTIVITY_EMITTER } from '../src/shared/ports/activity.port';
 import { IActivityEmitter } from '../src/shared/ports/activity.port';
 import { AppPrismaService } from '../src/shared/prisma/prisma.service';
@@ -21,10 +21,24 @@ describe('pulse api (e2e)', () => {
     await app.close();
   });
 
-  async function login(userId: string): Promise<string> {
+  async function login(userId: string, orgId?: string): Promise<string> {
+    const emails: Record<string, string> = {
+      [IDS.user.ava]: IDS.email.ava,
+      [IDS.user.maya]: IDS.email.maya,
+      [IDS.user.liam]: IDS.email.liam,
+      [IDS.user.nora]: IDS.email.nora,
+      [IDS.user.jordan]: IDS.email.jordan,
+      [IDS.user.priya]: IDS.email.priya,
+      [IDS.user.owen]: IDS.email.owen,
+      [IDS.user.elise]: IDS.email.elise,
+    };
     const res = await request(app.getHttpServer())
       .post('/auth/login')
-      .send({ userId })
+      .send({
+        email: emails[userId],
+        password: SEED_PASSWORD,
+        ...(orgId ? { orgId } : {}),
+      })
       .expect(201);
     return res.body.token as string;
   }
@@ -41,10 +55,23 @@ describe('pulse api (e2e)', () => {
   it('validation envelope has no stack', async () => {
     const res = await request(app.getHttpServer())
       .post('/auth/login')
-      .send({ userId: 'not-a-uuid', extra: 'x' })
+      .send({ email: 'not-an-email', extra: 'x' })
       .expect(422);
     expect(res.body.error.code).toBe('VALIDATION_FAILED');
     expect(JSON.stringify(res.body)).not.toMatch(/stack|prisma|SELECT/i);
+  });
+
+  it('rejects a wrong password without leaking hashes', async () => {
+    const res = await request(app.getHttpServer())
+      .post('/auth/login')
+      .send({ email: IDS.email.liam, password: 'wrong-pass' })
+      .expect(401);
+    expect(res.body.error.code).toBe('AUTH_UNAUTHORIZED');
+    expect(JSON.stringify(res.body)).not.toMatch(/passwordHash|scrypt/i);
+  });
+
+  it('does not list a public user directory', async () => {
+    await request(app.getHttpServer()).get('/auth/users').expect(401);
   });
 
   it('cross-org survey is not found', async () => {
@@ -144,10 +171,12 @@ describe('pulse api (e2e)', () => {
       .send({
         name: 'Riley Chen',
         email: `riley-${Date.now()}@northwind.local`,
+        password: SEED_PASSWORD,
         roleId: IDS.role.manager,
       })
       .expect(201);
     expect(created.body.roleId).toBe(IDS.role.manager);
+    expect(created.body.passwordHash).toBeUndefined();
   });
 
   it('custom roles are visible and assignable only in the creating org', async () => {
@@ -167,6 +196,7 @@ describe('pulse api (e2e)', () => {
       .send({
         name: 'Apex Lead',
         email: `apex-lead-${Date.now()}@apex.local`,
+        password: SEED_PASSWORD,
         roleId: IDS.role.teamLead,
       })
       .expect(404);
@@ -185,6 +215,7 @@ describe('pulse api (e2e)', () => {
         name: 'Wrong Org Lead',
         email: `wrong-lead-${Date.now()}@apex.local`,
         orgId: IDS.org.apex,
+        password: SEED_PASSWORD,
         roleId: IDS.role.teamLead,
       })
       .expect(404);
@@ -203,6 +234,7 @@ describe('pulse api (e2e)', () => {
       .send({
         name: 'Northwind Lead',
         email: `nw-lead-${Date.now()}@northwind.local`,
+        password: SEED_PASSWORD,
         roleId: IDS.role.teamLead,
       })
       .expect(201);
@@ -280,6 +312,7 @@ describe('pulse api (e2e)', () => {
       .send({
         name: 'Kit Rowe',
         email,
+        password: SEED_PASSWORD,
         roleId: IDS.role.member,
       })
       .expect(201);
@@ -289,6 +322,7 @@ describe('pulse api (e2e)', () => {
       .send({
         name: 'Kit Two',
         email,
+        password: SEED_PASSWORD,
         roleId: IDS.role.member,
       })
       .expect(409);
@@ -299,6 +333,7 @@ describe('pulse api (e2e)', () => {
       .send({
         name: 'Kit Apex',
         email,
+        password: SEED_PASSWORD,
         roleId: IDS.role.member,
       })
       .expect(201);
@@ -310,16 +345,25 @@ describe('pulse api (e2e)', () => {
       .send({
         name: 'Kit Apex Two',
         email,
+        password: SEED_PASSWORD,
         roleId: IDS.role.member,
       })
       .expect(409);
     const northwindSession = await request(app.getHttpServer())
       .post('/auth/login')
-      .send({ userId: created.body.id })
+      .send({
+        email,
+        password: SEED_PASSWORD,
+        orgId: IDS.org.northwind,
+      })
       .expect(201);
     const apexSession = await request(app.getHttpServer())
       .post('/auth/login')
-      .send({ userId: apexTwin.body.id })
+      .send({
+        email,
+        password: SEED_PASSWORD,
+        orgId: IDS.org.apex,
+      })
       .expect(201);
     expect(northwindSession.body.user.id).not.toBe(apexSession.body.user.id);
     expect(northwindSession.body.org.id).toBe(IDS.org.northwind);
