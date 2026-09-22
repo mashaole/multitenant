@@ -121,3 +121,20 @@ main {
 .card.error {
   border-color: #e3b4b4;
 }
+
+.pager {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin: 0.5rem 0 1rem;
+}
+
+.pager .btn {
+  min-height: 44px;
+  min-width: 44px;
+}
+
+.pager .btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}

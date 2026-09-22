@@ -33,6 +33,33 @@ export function Button({
   );
 }
 
+export function Pager({
+  page,
+  limit,
+  total,
+  onPage,
+}: {
+  page: number;
+  limit: number;
+  total: number;
+  onPage: (next: number) => void;
+}) {
+  const pageCount = Math.max(1, Math.ceil(total / Math.max(1, limit)));
+  return (
+    <nav className="pager" aria-label="Pagination">
+      <Button disabled={page <= 1} onClick={() => onPage(page - 1)}>
+        Previous
+      </Button>
+      <span className="muted">
+        Page {page} of {pageCount}
+      </span>
+      <Button disabled={page >= pageCount} onClick={() => onPage(page + 1)}>
+        Next
+      </Button>
+    </nav>
+  );
+}
+
 export function Card({ children }: { children: ReactNode }) {
   return <div className="card">{children}</div>;
 }

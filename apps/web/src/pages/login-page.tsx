@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../api/client';
 import { useAuth } from '../app/auth-context';
-import { Button, Card, PageShell } from '../components/ui';
+import { Button, Card, Pager, PageShell } from '../components/ui';
+import { Page, pagePath } from '../models/page';
 
 interface PickerUser {
   id: string;
@@ -15,14 +16,15 @@ interface PickerUser {
 export function LoginPage() {
   const { login, token, has } = useAuth();
   const navigate = useNavigate();
-  const [users, setUsers] = useState<PickerUser[]>([]);
+  const [page, setPage] = useState(1);
+  const [users, setUsers] = useState<Page<PickerUser> | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    api<PickerUser[]>('/auth/users', null)
+    api<Page<PickerUser>>(pagePath('/auth/users', page), null)
       .then(setUsers)
       .catch((err) => setError(err.message));
-  }, []);
+  }, [page]);
 
   useEffect(() => {
     if (!token) {
@@ -37,11 +39,14 @@ export function LoginPage() {
     }
   }, [token, has, navigate]);
 
-  const grouped = users.reduce<Record<string, PickerUser[]>>((acc, u) => {
-    acc[u.org.name] = acc[u.org.name] ?? [];
-    acc[u.org.name].push(u);
-    return acc;
-  }, {});
+  const grouped = (users?.items ?? []).reduce<Record<string, PickerUser[]>>(
+    (acc, user) => {
+      acc[user.org.name] = acc[user.org.name] ?? [];
+      acc[user.org.name].push(user);
+      return acc;
+    },
+    {},
+  );
 
   return (
     <PageShell title="Sign in">
@@ -51,13 +56,13 @@ export function LoginPage() {
         <Card key={org}>
           <h2>{org}</h2>
           <ul className="user-list">
-            {list.map((u) => (
-              <li key={u.id}>
+            {list.map((user) => (
+              <li key={user.id}>
                 <div>
-                  <strong>{u.name}</strong>
-                  <span className="muted"> {u.role.name}</span>
+                  <strong>{user.name}</strong>
+                  <span className="muted"> {user.role.name}</span>
                 </div>
-                <Button onClick={() => login(u.id).catch((e) => setError(e.message))}>
+                <Button onClick={() => login(user.id).catch((e) => setError(e.message))}>
                   Enter
                 </Button>
               </li>
@@ -65,6 +70,14 @@ export function LoginPage() {
           </ul>
         </Card>
       ))}
+      {users && (
+        <Pager
+          page={users.page}
+          limit={users.limit}
+          total={users.total}
+          onPage={setPage}
+        />
+      )}
     </PageShell>
   );
 }

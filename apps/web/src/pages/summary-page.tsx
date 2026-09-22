@@ -1,7 +1,8 @@
 import { FormEvent, useState } from 'react';
 import { api } from '../api/client';
 import { useAuth } from '../app/auth-context';
-import { Button, Card, ErrorFallback, Field, LoadingState, PageShell } from '../components/ui';
+import { Button, Card, ErrorFallback, Field, LoadingState, Pager, PageShell } from '../components/ui';
+import { Page, pagePath } from '../models/page';
 import { useFetch } from '../utils/use-fetch';
 
 interface Survey {
@@ -27,8 +28,12 @@ interface Summary {
 
 export function SummaryPage() {
   const { token, has } = useAuth();
-  const surveys = useFetch<Survey[]>(() => api('/surveys', token), [token]);
-  const selected = surveys.data?.[0];
+  const [page, setPage] = useState(1);
+  const surveys = useFetch<Page<Survey>>(
+    () => api(pagePath('/surveys', page), token),
+    [token, page],
+  );
+  const selected = surveys.data?.items[0];
   const summary = useFetch<Summary>(
     () =>
       selected
@@ -60,6 +65,7 @@ export function SummaryPage() {
       });
       setTitle('');
       setStatus('Survey created.');
+      setPage(1);
       surveys.retry();
     } catch (err) {
       setStatus((err as { message: string }).message);
@@ -90,6 +96,15 @@ export function SummaryPage() {
       {summary.error && (
         <ErrorFallback message={summary.error} onRetry={summary.retry} />
       )}
+      {surveys.data && surveys.data.items.length > 1 && (
+        <ul className="user-list">
+          {surveys.data.items.map((survey) => (
+            <li key={survey.id}>
+              <strong>{survey.title}</strong>
+            </li>
+          ))}
+        </ul>
+      )}
       {summary.data && selected && !summary.error && (
         <Card>
           <h2>{selected.title}</h2>
@@ -110,6 +125,14 @@ export function SummaryPage() {
             </p>
           ))}
         </Card>
+      )}
+      {surveys.data && (
+        <Pager
+          page={surveys.data.page}
+          limit={surveys.data.limit}
+          total={surveys.data.total}
+          onPage={setPage}
+        />
       )}
     </PageShell>
   );

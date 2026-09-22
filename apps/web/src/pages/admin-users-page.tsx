@@ -1,7 +1,8 @@
 import { FormEvent, useState } from 'react';
 import { api } from '../api/client';
 import { useAuth } from '../app/auth-context';
-import { Button, Card, ErrorFallback, Field, LoadingState, PageShell } from '../components/ui';
+import { Button, Card, ErrorFallback, Field, LoadingState, Pager, PageShell } from '../components/ui';
+import { Page, pagePath } from '../models/page';
 import { useFetch } from '../utils/use-fetch';
 
 interface UserRow {
@@ -18,8 +19,15 @@ interface Role {
 
 export function AdminUsersPage() {
   const { token } = useAuth();
-  const users = useFetch<UserRow[]>(() => api('/users', token), [token]);
-  const roles = useFetch<Role[]>(() => api('/roles', token), [token]);
+  const [page, setPage] = useState(1);
+  const users = useFetch<Page<UserRow>>(
+    () => api(pagePath('/users', page), token),
+    [token, page],
+  );
+  const roles = useFetch<Page<Role>>(
+    () => api(pagePath('/roles', 1, {}, 100), token),
+    [token],
+  );
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [roleId, setRoleId] = useState('');
@@ -35,6 +43,7 @@ export function AdminUsersPage() {
       setName('');
       setEmail('');
       setStatus('User created.');
+      setPage(1);
       users.retry();
     } catch (err) {
       setStatus((err as { message: string }).message);
@@ -59,7 +68,7 @@ export function AdminUsersPage() {
           <Field label="Role">
             <select value={roleId} onChange={(e) => setRoleId(e.target.value)} required>
               <option value="">Select</option>
-              {roles.data?.map((role) => (
+              {roles.data?.items.map((role) => (
                 <option key={role.id} value={role.id}>
                   {role.name}
                 </option>
@@ -72,7 +81,7 @@ export function AdminUsersPage() {
       </Card>
       {users.loading && <LoadingState />}
       {users.error && <ErrorFallback message={users.error} onRetry={users.retry} />}
-      {users.data?.map((user) => (
+      {users.data?.items.map((user) => (
         <Card key={user.id}>
           <strong>{user.name}</strong>
           <p className="muted">
@@ -80,6 +89,14 @@ export function AdminUsersPage() {
           </p>
         </Card>
       ))}
+      {users.data && (
+        <Pager
+          page={users.data.page}
+          limit={users.data.limit}
+          total={users.data.total}
+          onPage={setPage}
+        />
+      )}
     </PageShell>
   );
 }

@@ -1,7 +1,8 @@
 import { FormEvent, useState } from 'react';
 import { api } from '../api/client';
 import { useAuth } from '../app/auth-context';
-import { Button, Card, ErrorFallback, Field, LoadingState, PageShell } from '../components/ui';
+import { Button, Card, ErrorFallback, Field, LoadingState, Pager, PageShell } from '../components/ui';
+import { Page, pagePath } from '../models/page';
 import { useFetch } from '../utils/use-fetch';
 
 const MODULE_KEYS = ['surveys', 'responses', 'summary', 'activity'];
@@ -15,9 +16,10 @@ interface Org {
 
 export function AdminOrgsPage() {
   const { token } = useAuth();
-  const { data, error, loading, retry } = useFetch<Org[]>(
-    () => api('/orgs', token),
-    [token],
+  const [page, setPage] = useState(1);
+  const { data, error, loading, retry } = useFetch<Page<Org>>(
+    () => api(pagePath('/orgs', page), token),
+    [token, page],
   );
   const [name, setName] = useState('');
   const [status, setStatus] = useState<string | null>(null);
@@ -28,6 +30,7 @@ export function AdminOrgsPage() {
       await api('/orgs', token, { method: 'POST', body: JSON.stringify({ name }) });
       setName('');
       setStatus('Organization created.');
+      setPage(1);
       retry();
     } catch (err) {
       setStatus((err as { message: string }).message);
@@ -59,7 +62,7 @@ export function AdminOrgsPage() {
       </Card>
       {loading && <LoadingState />}
       {error && <ErrorFallback message={error} onRetry={retry} />}
-      {data?.map((org) => {
+      {data?.items.map((org) => {
         const current = org.orgModules.map((row) => row.module.key);
         return (
           <Card key={org.id}>
@@ -85,6 +88,14 @@ export function AdminOrgsPage() {
           </Card>
         );
       })}
+      {data && (
+        <Pager
+          page={data.page}
+          limit={data.limit}
+          total={data.total}
+          onPage={setPage}
+        />
+      )}
     </PageShell>
   );
 }

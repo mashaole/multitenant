@@ -271,6 +271,8 @@
           "script": {
             "exec": [
               "pm.test('activity 200', () => pm.response.to.have.status(200));",
+              "const body = pm.response.json();",
+              "pm.test('paged', () => { pm.expect(body.items).to.be.an('array'); pm.expect(body.limit).to.be.at.most(100); });",
               "const raw = pm.response.text();",
               "pm.test('no secrets', () => pm.expect(raw).to.not.match(/tokenHash|Bearer |@northwind/));"
             ]
