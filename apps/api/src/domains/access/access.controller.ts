@@ -1,4 +1,13 @@
-import { Body, Controller, Get, Post, Query } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  ParseUUIDPipe,
+  Post,
+  Query,
+} from '@nestjs/common';
 import { AccessService } from './access.service';
 import { CreateRoleDto } from './models/create-role.dto';
 import { RequiresPermission } from '../../shared/http/permission.decorator';
@@ -31,5 +40,14 @@ export class AccessController {
   @RequiresPermission('roles:create')
   createRole(@CurrentAuth() auth: TokenClaims, @Body() body: CreateRoleDto) {
     return this.access.createRole(auth, body.name, body.permissionKeys);
+  }
+
+  @Delete('roles/:id')
+  @RequiresPermission('roles:create')
+  deleteRole(
+    @CurrentAuth() auth: TokenClaims,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.access.deleteRole(auth, id);
   }
 }

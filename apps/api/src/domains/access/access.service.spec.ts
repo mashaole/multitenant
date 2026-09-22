@@ -19,6 +19,9 @@ describe('AccessService', () => {
       keys.map((key) => ({ id: key, key })),
     ),
     createRole: jest.fn(),
+    findRole: jest.fn(),
+    countUsersForRole: jest.fn(),
+    deleteRole: jest.fn(),
   };
   const activity: IActivityEmitter = { emit: jest.fn(), drain: jest.fn() };
   const service = new AccessService(repo, {} as never, activity);
@@ -84,5 +87,52 @@ describe('AccessService', () => {
       ),
     ).rejects.toBeInstanceOf(AppError);
     expect(activity.emit).not.toHaveBeenCalled();
+  });
+
+  it('refuses to delete a system role', async () => {
+    (repo.findRole as jest.Mock).mockResolvedValue({
+      id: 'sys',
+      name: 'MANAGER',
+      orgId: null,
+      isSystem: true,
+    });
+    await expect(
+      service.deleteRole(
+        {
+          sub: 'u',
+          orgId: 'org-a',
+          roleId: 'r',
+          roleName: 'MANAGER',
+          permissions: ['roles:create'],
+          jti: 'j',
+        },
+        'sys',
+      ),
+    ).rejects.toMatchObject({ status: 403 });
+    expect(repo.deleteRole).not.toHaveBeenCalled();
+  });
+
+  it('refuses to delete a role that still has users', async () => {
+    (repo.findRole as jest.Mock).mockResolvedValue({
+      id: 'lead',
+      name: 'Lead',
+      orgId: 'org-a',
+      isSystem: false,
+    });
+    (repo.countUsersForRole as jest.Mock).mockResolvedValue(1);
+    await expect(
+      service.deleteRole(
+        {
+          sub: 'u',
+          orgId: 'org-a',
+          roleId: 'r',
+          roleName: 'MANAGER',
+          permissions: ['roles:create'],
+          jti: 'j',
+        },
+        'lead',
+      ),
+    ).rejects.toMatchObject({ status: 409 });
+    expect(repo.deleteRole).not.toHaveBeenCalled();
   });
 });

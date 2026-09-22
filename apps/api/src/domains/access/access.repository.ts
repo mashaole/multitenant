@@ -21,4 +21,15 @@ export interface IAccessRepository {
     tx: TenantTx,
     data: { orgId: string; name: string; permissionIds: string[] },
   ): Promise<{ id: string; name: string }>;
+  findRole(
+    tx: TenantTx,
+    id: string,
+  ): Promise<{
+    id: string;
+    name: string;
+    orgId: string | null;
+    isSystem: boolean;
+  } | null>;
+  countUsersForRole(tx: TenantTx, roleId: string): Promise<number>;
+  deleteRole(tx: TenantTx, id: string): Promise<void>;
 }

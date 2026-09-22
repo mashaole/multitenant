@@ -81,4 +81,46 @@ export class AccessService {
       throw err;
     }
   }
+
+  async deleteRole(auth: TokenClaims, id: string) {
+    const role = await withTenant(
+      this.appPrisma,
+      {
+        orgId: auth.orgId,
+        userId: auth.sub,
+        isOrgReader: isOrgReader(auth.permissions),
+      },
+      async (tx) => {
+        const found = await this.repo.findRole(tx, id);
+        if (!found || !isRoleAssignableToOrg(found.orgId, auth.orgId)) {
+          throw new AppError(ERROR_CODES.NOT_FOUND, 'Role not found', 404);
+        }
+        if (found.isSystem || found.orgId === null) {
+          throw new AppError(
+            ERROR_CODES.FORBIDDEN_PERMISSION,
+            'System roles cannot be deleted',
+            403,
+          );
+        }
+        const holders = await this.repo.countUsersForRole(tx, id);
+        if (holders > 0) {
+          throw new AppError(
+            ERROR_CODES.CONFLICT_DUPLICATE,
+            'Role is still assigned to users',
+            409,
+          );
+        }
+        await this.repo.deleteRole(tx, id);
+        return found;
+      },
+    );
+    this.activity.emit({
+      orgId: auth.orgId,
+      userId: auth.sub,
+      group: 'access',
+      action: 'role.deleted',
+      metadata: { entityType: 'role', entityId: role.id, name: role.name },
+    });
+    return { ok: true };
+  }
 }

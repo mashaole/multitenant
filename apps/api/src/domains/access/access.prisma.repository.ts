@@ -46,4 +46,20 @@ export class AccessPrismaRepository implements IAccessRepository {
       select: { id: true, name: true },
     });
   }
+
+  findRole(tx: TenantTx, id: string) {
+    return tx.role.findFirst({
+      where: { id },
+      select: { id: true, name: true, orgId: true, isSystem: true },
+    });
+  }
+
+  countUsersForRole(tx: TenantTx, roleId: string) {
+    return tx.user.count({ where: { roleId } });
+  }
+
+  async deleteRole(tx: TenantTx, id: string) {
+    await tx.rolePermission.deleteMany({ where: { roleId: id } });
+    await tx.role.delete({ where: { id } });
+  }
 }
