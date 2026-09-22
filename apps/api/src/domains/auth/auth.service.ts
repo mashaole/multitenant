@@ -2,7 +2,7 @@ import { Inject, Injectable } from '@nestjs/common';
 import { randomUUID } from 'crypto';
 import { AUTH_REPOSITORY, IAuthRepository } from './auth.repository';
 import { CLOCK, IClock } from '../../shared/ports/clock.port';
-import { TOKEN_SIGNER, ITokenSigner } from '../../shared/ports/token-signer.port';
+import { TOKEN_SIGNER, ITokenSigner, TokenClaims } from '../../shared/ports/token-signer.port';
 import { TOKEN_HASHER, ITokenHasher } from '../../shared/ports/token-hasher.port';
 import { PASSWORD_HASHER, IPasswordHasher } from '../../shared/ports/password-hasher.port';
 import { ACTIVITY_EMITTER, IActivityEmitter } from '../../shared/ports/activity.port';
@@ -101,6 +101,12 @@ export class AuthService {
       metadata: { entityType: 'session', entityId: jti, name: user.name },
     });
 
+    const moduleRows = await this.prisma.orgModule.findMany({
+      where: { orgId: user.orgId },
+      select: { module: { select: { key: true } } },
+    });
+    const modules = moduleRows.map((row) => row.module.key);
+
     return {
       token,
       expiresAt,
@@ -111,7 +117,38 @@ export class AuthService {
         roleName: user.role.name,
         permissions,
       },
-      org: { id: user.org.id, name: user.org.name },
+      org: { id: user.org.id, name: user.org.name, modules },
+    };
+  }
+
+  async me(auth: TokenClaims) {
+    const user = await this.prisma.user.findFirst({
+      where: { id: auth.sub, deletedAt: null },
+      include: {
+        org: true,
+        role: true,
+      },
+    });
+    if (!user || user.orgId !== auth.orgId) {
+      throw new AppError(ERROR_CODES.AUTH_UNAUTHORIZED, 'Not authenticated', 401);
+    }
+    const moduleRows = await this.prisma.orgModule.findMany({
+      where: { orgId: auth.orgId },
+      select: { module: { select: { key: true } } },
+    });
+    return {
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        roleName: user.role.name,
+        permissions: auth.permissions,
+      },
+      org: {
+        id: user.org.id,
+        name: user.org.name,
+        modules: moduleRows.map((row) => row.module.key),
+      },
     };
   }
 
