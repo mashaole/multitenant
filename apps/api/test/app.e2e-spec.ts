@@ -4,7 +4,7 @@ import { createApp } from '../src/create-app';
 import { IDS, SEED_PASSWORD } from '../prisma/ids';
 import { ACTIVITY_EMITTER } from '../src/shared/ports/activity.port';
 import { IActivityEmitter } from '../src/shared/ports/activity.port';
-import { AppPrismaService } from '../src/shared/prisma/prisma.service';
+import { AppPrismaService, PrismaService } from '../src/shared/prisma/prisma.service';
 import { withTenant } from '../src/shared/tenant/with-tenant';
 
 describe('pulse api (e2e)', () => {
@@ -21,23 +21,48 @@ describe('pulse api (e2e)', () => {
     await app.close();
   });
 
-  async function login(userId: string, orgId?: string): Promise<string> {
-    const emails: Record<string, string> = {
-      [IDS.user.ava]: IDS.email.ava,
-      [IDS.user.maya]: IDS.email.maya,
-      [IDS.user.liam]: IDS.email.liam,
-      [IDS.user.nora]: IDS.email.nora,
-      [IDS.user.jordan]: IDS.email.jordan,
-      [IDS.user.priya]: IDS.email.priya,
-      [IDS.user.owen]: IDS.email.owen,
-      [IDS.user.elise]: IDS.email.elise,
+  async function login(userId: string): Promise<string> {
+    const accounts: Record<string, { email: string; organization: string }> = {
+      [IDS.user.ava]: {
+        email: IDS.email.ava,
+        organization: IDS.orgName.system,
+      },
+      [IDS.user.maya]: {
+        email: IDS.email.maya,
+        organization: IDS.orgName.northwind,
+      },
+      [IDS.user.liam]: {
+        email: IDS.email.liam,
+        organization: IDS.orgName.northwind,
+      },
+      [IDS.user.nora]: {
+        email: IDS.email.nora,
+        organization: IDS.orgName.northwind,
+      },
+      [IDS.user.jordan]: {
+        email: IDS.email.jordan,
+        organization: IDS.orgName.northwind,
+      },
+      [IDS.user.priya]: {
+        email: IDS.email.priya,
+        organization: IDS.orgName.apex,
+      },
+      [IDS.user.owen]: {
+        email: IDS.email.owen,
+        organization: IDS.orgName.apex,
+      },
+      [IDS.user.elise]: {
+        email: IDS.email.elise,
+        organization: IDS.orgName.apex,
+      },
     };
+    const account = accounts[userId];
     const res = await request(app.getHttpServer())
       .post('/auth/login')
       .send({
-        email: emails[userId],
+        email: account.email,
         password: SEED_PASSWORD,
-        ...(orgId ? { orgId } : {}),
+        organization: account.organization,
       })
       .expect(201);
     return res.body.token as string;
@@ -64,10 +89,36 @@ describe('pulse api (e2e)', () => {
   it('rejects a wrong password without leaking hashes', async () => {
     const res = await request(app.getHttpServer())
       .post('/auth/login')
-      .send({ email: IDS.email.liam, password: 'wrong-pass' })
+      .send({
+        email: IDS.email.liam,
+        password: 'wrong-pass',
+        organization: IDS.orgName.northwind,
+      })
       .expect(401);
     expect(res.body.error.code).toBe('AUTH_UNAUTHORIZED');
     expect(JSON.stringify(res.body)).not.toMatch(/passwordHash|scrypt/i);
+  });
+
+  it('accepts a mixed-case email on login', async () => {
+    const res = await request(app.getHttpServer())
+      .post('/auth/login')
+      .send({
+        email: 'Liam@Northwind.LOCAL',
+        password: SEED_PASSWORD,
+        organization: 'northwind retail',
+      })
+      .expect(201);
+    expect(res.body.user.id).toBe(IDS.user.liam);
+  });
+
+  it('rejects a duplicate organization name ignoring case', async () => {
+    const token = await login(IDS.user.ava);
+    const res = await request(app.getHttpServer())
+      .post('/orgs')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ name: 'apex mining' })
+      .expect(409);
+    expect(res.body.error.code).toBe('CONFLICT_DUPLICATE');
   });
 
   it('does not list a public user directory', async () => {
@@ -241,6 +292,40 @@ describe('pulse api (e2e)', () => {
     expect(assigned.body.roleId).toBe(IDS.role.teamLead);
   });
 
+  it('refuses to delete a custom role that still has users', async () => {
+    const token = await login(IDS.user.maya);
+    const held = await request(app.getHttpServer())
+      .delete(`/roles/${IDS.role.teamLead}`)
+      .set('Authorization', `Bearer ${token}`)
+      .expect(409);
+    expect(held.body.error.code).toBe('CONFLICT_DUPLICATE');
+    await request(app.getHttpServer())
+      .delete(`/roles/${IDS.role.manager}`)
+      .set('Authorization', `Bearer ${token}`)
+      .expect(403);
+    const priya = await login(IDS.user.priya);
+    await request(app.getHttpServer())
+      .delete(`/roles/${IDS.role.teamLead}`)
+      .set('Authorization', `Bearer ${priya}`)
+      .expect(404);
+    const created = await request(app.getHttpServer())
+      .post('/roles')
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        name: `Spare ${Date.now()}`,
+        permissionKeys: ['summary:read'],
+      })
+      .expect(201);
+    await request(app.getHttpServer())
+      .delete(`/roles/${created.body.id}`)
+      .set('Authorization', `Bearer ${token}`)
+      .expect(200);
+    await request(app.getHttpServer())
+      .delete(`/roles/${created.body.id}`)
+      .set('Authorization', `Bearer ${token}`)
+      .expect(404);
+  });
+
   it('second login revokes first at cap 1', async () => {
     const first = await login(IDS.user.owen);
     await login(IDS.user.owen);
@@ -297,10 +382,34 @@ describe('pulse api (e2e)', () => {
       .send({ maxSessionsPerUser: 0 })
       .expect(422);
     await request(app.getHttpServer())
+      .patch(`/orgs/${IDS.org.northwind}/settings`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({ maxSessionsPerUser: 21 })
+      .expect(422);
+  });
+
+  it('manager cannot patch another org session cap', async () => {
+    const token = await login(IDS.user.maya);
+    const res = await request(app.getHttpServer())
       .patch(`/orgs/${IDS.org.apex}/settings`)
       .set('Authorization', `Bearer ${token}`)
       .send({ maxSessionsPerUser: 2 })
       .expect(403);
+    expect(res.body.error.code).toBe('FORBIDDEN_PERMISSION');
+  });
+
+  it('expired session is 401 AUTH_TOKEN_EXPIRED', async () => {
+    const token = await login(IDS.user.liam);
+    const prisma = app.get(PrismaService);
+    await prisma.session.updateMany({
+      where: { userId: IDS.user.liam, revokedAt: null },
+      data: { expiresAt: new Date('2000-01-01T00:00:00.000Z') },
+    });
+    const res = await request(app.getHttpServer())
+      .get('/surveys/active')
+      .set('Authorization', `Bearer ${token}`)
+      .expect(401);
+    expect(res.body.error.code).toBe('AUTH_TOKEN_EXPIRED');
   });
 
   it('duplicate email conflicts and soft-delete is idempotent', async () => {
@@ -322,6 +431,16 @@ describe('pulse api (e2e)', () => {
       .send({
         name: 'Kit Two',
         email,
+        password: SEED_PASSWORD,
+        roleId: IDS.role.member,
+      })
+      .expect(409);
+    await request(app.getHttpServer())
+      .post('/users')
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        name: 'Kit Case',
+        email: email.toUpperCase(),
         password: SEED_PASSWORD,
         roleId: IDS.role.member,
       })
@@ -349,12 +468,37 @@ describe('pulse api (e2e)', () => {
         roleId: IDS.role.member,
       })
       .expect(409);
+    const missingOrg = await request(app.getHttpServer())
+      .post('/auth/login')
+      .send({
+        email,
+        password: SEED_PASSWORD,
+      })
+      .expect(422);
+    expect(missingOrg.body.error.code).toBe('VALIDATION_FAILED');
+    const uniqueMissingOrg = await request(app.getHttpServer())
+      .post('/auth/login')
+      .send({
+        email: IDS.email.liam,
+        password: SEED_PASSWORD,
+      })
+      .expect(422);
+    expect(uniqueMissingOrg.body.error.code).toBe('VALIDATION_FAILED');
+    const wrongOrg = await request(app.getHttpServer())
+      .post('/auth/login')
+      .send({
+        email,
+        password: SEED_PASSWORD,
+        organization: 'System',
+      })
+      .expect(401);
+    expect(wrongOrg.body.error.code).toBe('AUTH_UNAUTHORIZED');
     const northwindSession = await request(app.getHttpServer())
       .post('/auth/login')
       .send({
         email,
         password: SEED_PASSWORD,
-        orgId: IDS.org.northwind,
+        organization: 'Northwind Retail',
       })
       .expect(201);
     const apexSession = await request(app.getHttpServer())
@@ -362,7 +506,7 @@ describe('pulse api (e2e)', () => {
       .send({
         email,
         password: SEED_PASSWORD,
-        orgId: IDS.org.apex,
+        organization: 'apex mining',
       })
       .expect(201);
     expect(northwindSession.body.user.id).not.toBe(apexSession.body.user.id);

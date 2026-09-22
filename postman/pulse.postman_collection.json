@@ -81,7 +81,7 @@
         "header": [{ "key": "Content-Type", "value": "application/json" }],
         "body": {
           "mode": "raw",
-          "raw": "{ \"email\": \"{{liamEmail}}\", \"password\": \"{{password}}\" }"
+          "raw": "{ \"email\": \"{{liamEmail}}\", \"password\": \"{{password}}\", \"organization\": \"{{northwindName}}\" }"
         },
         "url": "{{baseUrl}}/auth/login"
       }
@@ -146,7 +146,7 @@
         "header": [{ "key": "Content-Type", "value": "application/json" }],
         "body": {
           "mode": "raw",
-          "raw": "{ \"email\": \"{{noraEmail}}\", \"password\": \"{{password}}\" }"
+          "raw": "{ \"email\": \"{{noraEmail}}\", \"password\": \"{{password}}\", \"organization\": \"{{northwindName}}\" }"
         },
         "url": "{{baseUrl}}/auth/login"
       }
@@ -223,7 +223,7 @@
         "header": [{ "key": "Content-Type", "value": "application/json" }],
         "body": {
           "mode": "raw",
-          "raw": "{ \"email\": \"{{mayaEmail}}\", \"password\": \"{{password}}\" }"
+          "raw": "{ \"email\": \"{{mayaEmail}}\", \"password\": \"{{password}}\", \"organization\": \"{{northwindName}}\" }"
         },
         "url": "{{baseUrl}}/auth/login"
       }
@@ -261,6 +261,32 @@
         "method": "GET",
         "header": [{ "key": "Authorization", "value": "Bearer {{mayaToken}}" }],
         "url": "{{baseUrl}}/surveys/{{apexSurvey}}/summary"
+      }
+    },
+    {
+      "name": "Manager cannot patch Apex cap",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('403', () => pm.response.to.have.status(403));",
+              "pm.test('code', () => pm.expect(pm.response.json().error.code).to.eql('FORBIDDEN_PERMISSION'));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "PATCH",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{mayaToken}}" },
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{ \"maxSessionsPerUser\": 2 }"
+        },
+        "url": "{{baseUrl}}/orgs/{{apexOrg}}/settings"
       }
     },
     {
@@ -338,7 +364,7 @@
         "header": [{ "key": "Content-Type", "value": "application/json" }],
         "body": {
           "mode": "raw",
-          "raw": "{ \"email\": \"{{priyaEmail}}\", \"password\": \"{{password}}\" }"
+          "raw": "{ \"email\": \"{{priyaEmail}}\", \"password\": \"{{password}}\", \"organization\": \"{{apexName}}\" }"
         },
         "url": "{{baseUrl}}/auth/login"
       }
@@ -380,7 +406,7 @@
         "header": [{ "key": "Content-Type", "value": "application/json" }],
         "body": {
           "mode": "raw",
-          "raw": "{ \"email\": \"{{owenEmail}}\", \"password\": \"{{password}}\" }"
+          "raw": "{ \"email\": \"{{owenEmail}}\", \"password\": \"{{password}}\", \"organization\": \"{{apexName}}\" }"
         },
         "url": "{{baseUrl}}/auth/login"
       }
@@ -400,7 +426,7 @@
         "header": [{ "key": "Content-Type", "value": "application/json" }],
         "body": {
           "mode": "raw",
-          "raw": "{ \"email\": \"{{owenEmail}}\", \"password\": \"{{password}}\" }"
+          "raw": "{ \"email\": \"{{owenEmail}}\", \"password\": \"{{password}}\", \"organization\": \"{{apexName}}\" }"
         },
         "url": "{{baseUrl}}/auth/login"
       }
