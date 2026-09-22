@@ -65,6 +65,11 @@ flowchart TB
   SES[SES email]
   SM[Secrets Manager]
   KMS[KMS JWT sign]
+  CWLogs[CloudWatch Logs]
+  CWMet[CloudWatch Metrics]
+  XRay[X-Ray via ADOT]
+  Alarms[CloudWatch Alarms]
+  Dash[CloudWatch dashboards]
 
   Browser --> CF
   CF --> S3Web
@@ -79,6 +84,18 @@ flowchart TB
   Worker --> RDS
   Worker --> SES
   Worker --> Replica
+  API --> CWLogs
+  Worker --> CWLogs
+  API --> CWMet
+  Worker --> CWMet
+  ALB --> CWMet
+  RDS --> CWMet
+  SQS --> CWMet
+  API --> XRay
+  Worker --> XRay
+  CWMet --> Alarms
+  CWMet --> Dash
+  XRay --> Dash
 ```
 
 | Piece | Choice | Why |
@@ -90,13 +107,25 @@ flowchart TB
 | Async | SQS + ECS Fargate workers | Replaces in-process drain; survives API crash |
 | Mail | SES | Weekly pulse reminder and activity digest |
 | Secrets | Secrets Manager + KMS RS256 | No long-lived HS256 in task env |
+| Logs | CloudWatch Logs | Structured JSON from API and workers; correlate with `trace_id` / `request_id` |
+| Metrics | CloudWatch Metrics + Container Insights | RED on API routes; USE on RDS / SQS / ECS; ALB 5xx and latency |
+| Traces | OpenTelemetry → ADOT sidecar → X-Ray | Spans across HTTP, Prisma, SQS produce/consume; W3C `traceparent` on queue messages |
+| Alerting | CloudWatch Alarms → SNS | Page on sustained 5xx / p99 / SQS age / RDS connections — not on every warn log |
+
+**Observability (design).** Three pillars, same ports locally (`ILogger` today; swap to structured JSON + OTel exporters on AWS):
+
+1. **Logging** — JSON to CloudWatch Logs (one log group per service: `pulse-api`, `pulse-activity`, `pulse-digest`). Every line carries `trace_id`, `request_id`, `orgId` where present. Never tokens, hashes, passwords, or emails. ALB access logs optional to S3 for forensics.
+2. **Metrics** — Container Insights on Fargate; app RED counters/histograms (`route`, `method`, `status_class` only — no user ids); USE on RDS (CPU, connections), SQS (ApproximateAgeOfOldestMessage, depth), ECS (CPU/memory). Target SLOs: availability and p99 latency on login / submit / summary.
+3. **Tracing** — ADOT collector as a sidecar; Nest instruments HTTP and Prisma; SQS messages carry `traceparent` so worker spans continue the login/submit trace. Sample ratio in prod; always keep error traces. X-Ray service map for API → RDS / SQS → workers.
+
+ALB `/health` stays the liveness target. A `/ready` probe (design) checks RDS before taking traffic. Full picture also lives in [docs/flows.md](docs/flows.md).
 
 **Produce / consume (design).** After `withTenant` commits, the API produces a small allowlisted message `{ orgId, userId, group, action, entityType, entityId, name }` to SQS. It does **not** await the worker. Two consumers:
 
 1. **Activity writer** — insert `ActivityLog` on the privileged client (same allowlist as today). Idempotent on `(orgId, userId, action, entityId)` or a message `id`.
 2. **Digest / email** — EventBridge weekly rule (Monday after ISO week close) or a `digest.requested` message. Worker reads the replica, builds a per-manager completion digest, sends via SES. No secrets or raw answers in the mail.
 
-Transactional outbox is the next hardening if we must not drop a produce after commit. First hardening around the edge: OIDC, WAF, KMS signer, read replicas for summary and digest. Full picture also lives in [docs/flows.md](docs/flows.md).
+Transactional outbox is the next hardening if we must not drop a produce after commit. First hardening around the edge: OIDC, WAF, KMS signer, read replicas for summary and digest, ADOT + alarms.
 
 ## Threat model (STRIDE-lite)
 
@@ -133,6 +162,7 @@ Cursor routed work through orchestrators, then loaded only the skills that match
 | `sql-optimization-compatible` | Parameterized Prisma, tenant indexes, no concatenated SQL |
 | `software-architecture` | Ports/adapters, domain modules, Fargate workers behind the same activity port |
 | `system-design-primer` | ALB not API Gateway, CloudFront for static only, SQS off the request path |
+| `sre-observability` | AWS design: RED/USE metrics, structured logs + trace correlation, ADOT/X-Ray, health/ready, actionable alarms |
 | `optimal-complexity` | Offset pagination, O(1) role-assignability check |
 | `dependency-hygiene-global` | No extra packages for pagination or role isolation |
 | `accidental-data-loss-prevention` | Soft-delete users; schema changes land in init while the DB is empty |
