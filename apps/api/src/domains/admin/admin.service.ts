@@ -7,6 +7,7 @@ import {
   assertPermissionSubset,
   canManageTenants,
   isOrgReader,
+  isRoleAssignableToOrg,
 } from '../../shared/access-control/permissions';
 import { AppError, ERROR_CODES } from '../../shared/http/error-codes';
 import { paginate, toPage } from '../../shared/http/pagination';
@@ -170,18 +171,19 @@ export class AdminService {
     if (!canManageTenants(auth.permissions) && orgId !== auth.orgId) {
       throw new AppError(ERROR_CODES.FORBIDDEN_PERMISSION, 'You can only add users to your organization', 403);
     }
-    const role = await this.prisma.role.findUnique({
-      where: { id: input.roleId },
-      include: { perms: { include: { permission: true } } },
-    });
-    if (!role) {
-      throw new AppError(ERROR_CODES.NOT_FOUND, 'Role not found', 404);
-    }
-    if (
-      !canManageTenants(auth.permissions) &&
-      role.orgId &&
-      role.orgId !== auth.orgId
-    ) {
+    const include = { perms: { include: { permission: true } } } as const;
+    const role = canManageTenants(auth.permissions)
+      ? await this.prisma.role.findUnique({
+          where: { id: input.roleId },
+          include,
+        })
+      : await this.tenantWork(auth, (tx) =>
+          tx.role.findUnique({
+            where: { id: input.roleId },
+            include,
+          }),
+        );
+    if (!role || !isRoleAssignableToOrg(role.orgId, orgId)) {
       throw new AppError(ERROR_CODES.NOT_FOUND, 'Role not found', 404);
     }
     const keys = role.perms.map((p) => p.permission.key);

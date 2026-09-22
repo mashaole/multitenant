@@ -15,7 +15,7 @@ A user belongs to exactly one organization.
 
 ## Invariants
 
-1. Data from one organization is never visible to another (app `orgId` + RLS).
+1. Data from one organization is never visible to another (app `orgId` + RLS). Custom roles (`roles.orgId` set) can be listed and assigned only in the organization that created them. System roles (`orgId` null) remain global.
 2. A member cannot read another member's responses, answers, sessions, or activity (`userId` + RLS). SUPER_ADMIN / MANAGER are not blocked: `is_org_reader` is true when their permission set intersects `{ summary:read, activity:read, users:create, users:delete, orgs:update, orgs:create, modules:manage }`.
 3. One response per member per survey per ISO week (Monday start). Unique `(surveyId, userId, weekStart)`.
 4. At most three questions per survey. Types: `RATING` (1–5) and `YES_NO`.

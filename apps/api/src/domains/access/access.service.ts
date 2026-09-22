@@ -4,7 +4,7 @@ import { ACCESS_REPOSITORY, IAccessRepository } from './access.repository';
 import { AppPrismaService } from '../../shared/prisma/prisma.service';
 import { withTenant } from '../../shared/tenant/with-tenant';
 import { TokenClaims } from '../../shared/ports/token-signer.port';
-import { isOrgReader, assertPermissionSubset } from '../../shared/access-control/permissions';
+import { isOrgReader, assertPermissionSubset, isRoleAssignableToOrg } from '../../shared/access-control/permissions';
 import { AppError, ERROR_CODES } from '../../shared/http/error-codes';
 import { slicePage } from '../../shared/http/pagination';
 import { ACTIVITY_EMITTER, IActivityEmitter } from '../../shared/ports/activity.port';
@@ -32,6 +32,7 @@ export class AccessService {
       (tx) => this.repo.listRoles(tx, auth.orgId),
     );
     const assignable = roles
+      .filter((role) => isRoleAssignableToOrg(role.orgId, auth.orgId))
       .filter((role) =>
         assertPermissionSubset(
           auth.permissions,

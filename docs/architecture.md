@@ -31,6 +31,8 @@ controller → service → repository port → Prisma adapter
 
 `is_org_reader` is computed in the app from permissions (`ORG_READER_PERMS`). MANAGER qualifies via `summary:read` / `users:create` / `orgs:update`. SUPER_ADMIN qualifies via `orgs:create`. MEMBER does not. Custom roles become readers only if they are granted one of those keys.
 
+Custom roles are created with `orgId = JWT org`. `GET /roles` and `POST /users` reject a custom role whose `orgId` is not the target organization. System roles stay global (`orgId` null). RLS on `roles` is `orgId IS NULL OR orgId = current_org`.
+
 Cross-tenant org create / list / module grant uses the privileged client (bypasses RLS) plus `orgs:create` / `modules:manage`. That path never asked RLS to see every org at once.
 
 ## Extraction recipe

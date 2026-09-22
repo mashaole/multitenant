@@ -22,6 +22,14 @@ export function assertPermissionSubset(actor: string[], target: string[]): boole
   return target.every((p) => have.has(p));
 }
 
+/** System roles (orgId null) are global. Custom roles stay in the creating org. */
+export function isRoleAssignableToOrg(
+  roleOrgId: string | null,
+  targetOrgId: string,
+): boolean {
+  return roleOrgId === null || roleOrgId === targetOrgId;
+}
+
 export const MODULE_BY_DOMAIN: Record<string, string> = {
   surveys: 'surveys',
   responses: 'responses',

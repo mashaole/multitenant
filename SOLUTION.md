@@ -11,6 +11,7 @@ Hybrid: application `orgId` (JWT + Prisma extension) and PostgreSQL RLS on `puls
 - Org policy on every tenant table: `org_id = current_org` (fail-closed if unset).
 - User policy on responses, answers, sessions, activity: org match and (`user_id = current_user` or `is_org_reader`).
 - `is_org_reader` is derived from permissions so SUPER_ADMIN and MANAGER are not blocked from summary, user delete, or session revoke.
+- Custom roles are org-owned: listed and assigned only in the creating org. System roles (`orgId` null) are global. Super-admin user create still checks `role.orgId` against the target org so a guessed UUID cannot attach another tenant's role.
 - Cross-tenant admin uses the privileged client.
 
 ## Auth

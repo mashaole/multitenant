@@ -150,6 +150,65 @@ describe('pulse api (e2e)', () => {
     expect(created.body.roleId).toBe(IDS.role.manager);
   });
 
+  it('custom roles are visible and assignable only in the creating org', async () => {
+    const priya = await login(IDS.user.priya);
+    const apexRoles = await request(app.getHttpServer())
+      .get('/roles?limit=100')
+      .set('Authorization', `Bearer ${priya}`)
+      .expect(200);
+    const apexNames = (apexRoles.body.items as Array<{ name: string }>).map(
+      (r) => r.name,
+    );
+    expect(apexNames).not.toContain('Team Lead');
+    expect(apexNames).not.toContain('Coach');
+    await request(app.getHttpServer())
+      .post('/users')
+      .set('Authorization', `Bearer ${priya}`)
+      .send({
+        name: 'Apex Lead',
+        email: `apex-lead-${Date.now()}@apex.local`,
+        roleId: IDS.role.teamLead,
+      })
+      .expect(404);
+    const ava = await login(IDS.user.ava);
+    const avaRoles = await request(app.getHttpServer())
+      .get('/roles?limit=100')
+      .set('Authorization', `Bearer ${ava}`)
+      .expect(200);
+    expect(
+      (avaRoles.body.items as Array<{ name: string }>).map((r) => r.name),
+    ).not.toContain('Team Lead');
+    await request(app.getHttpServer())
+      .post('/users')
+      .set('Authorization', `Bearer ${ava}`)
+      .send({
+        name: 'Wrong Org Lead',
+        email: `wrong-lead-${Date.now()}@apex.local`,
+        orgId: IDS.org.apex,
+        roleId: IDS.role.teamLead,
+      })
+      .expect(404);
+    const maya = await login(IDS.user.maya);
+    const northwindRoles = await request(app.getHttpServer())
+      .get('/roles?limit=100')
+      .set('Authorization', `Bearer ${maya}`)
+      .expect(200);
+    const northwindNames = (
+      northwindRoles.body.items as Array<{ name: string }>
+    ).map((r) => r.name);
+    expect(northwindNames).toContain('Team Lead');
+    const assigned = await request(app.getHttpServer())
+      .post('/users')
+      .set('Authorization', `Bearer ${maya}`)
+      .send({
+        name: 'Northwind Lead',
+        email: `nw-lead-${Date.now()}@northwind.local`,
+        roleId: IDS.role.teamLead,
+      })
+      .expect(201);
+    expect(assigned.body.roleId).toBe(IDS.role.teamLead);
+  });
+
   it('second login revokes first at cap 1', async () => {
     const first = await login(IDS.user.owen);
     await login(IDS.user.owen);

@@ -1,4 +1,4 @@
-import { assertPermissionSubset, canManageTenants, isOrgReader } from './permissions';
+import { assertPermissionSubset, canManageTenants, isOrgReader, isRoleAssignableToOrg } from './permissions';
 
 describe('assertPermissionSubset', () => {
   it('allows an empty grant', () => {
@@ -33,5 +33,16 @@ describe('isOrgReader', () => {
 
   it('is true when a reader permission is present', () => {
     expect(isOrgReader(['summary:read'])).toBe(true);
+  });
+});
+
+describe('isRoleAssignableToOrg', () => {
+  it('allows system roles in any org', () => {
+    expect(isRoleAssignableToOrg(null, 'org-a')).toBe(true);
+  });
+
+  it('allows a custom role only in its own org', () => {
+    expect(isRoleAssignableToOrg('org-a', 'org-a')).toBe(true);
+    expect(isRoleAssignableToOrg('org-a', 'org-b')).toBe(false);
   });
 });
