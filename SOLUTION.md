@@ -136,9 +136,36 @@ Transactional outbox is the next hardening if we must not drop a produce after c
 
 ## AI workflow
 
-Built in Cursor. Task setup: written [PLAN.md](PLAN.md) at the repo root, [SPEC.md](SPEC.md), [AGENTS.md](AGENTS.md), and this file first. Work was split: scaffold → schema/RLS → kernel → domains → tests → UI → Postman.
+Built in Cursor. Planning and code started from written [PLAN.md](PLAN.md) at the repo root, [SPEC.md](SPEC.md), [AGENTS.md](AGENTS.md), and this file. The **agent proposed** much of the work sequence (scaffold → schema/RLS → kernel → domains → tests → UI → Postman → browser hardening) and filled unspecified details with assumptions. The **human owned the plan**: edited it, enforced the initial requirements, timeboxed what stayed in-slice vs design-only, and accepted or invented follow-on requirements when real usage demanded them.
 
-Delegated to the agent: boilerplate, Prisma schema, Nest modules, React pages. Kept for human review: isolation rules, RLS vs RBAC, session cap, error envelope.
+### Agent vs human
+
+| Who | What |
+|---|---|
+| **Cursor agent** | Drafted PLAN phases and many implementation assumptions; scaffold; Prisma schema + RLS + seed; Nest kernel (JWT+session, `withTenant`, ports/adapters, rate limits, error envelope); domain services; unit/e2e/Postman; React SPA shell; AWS/observability **design** notes; code fixes when the human reported browser or flow gaps |
+| **Human (author)** | Initial requirements and product intent; **revised the plan** when agent assumptions drifted; decided sequence priority and what was out of scope / timeboxed; continuous **browser walkthroughs** (Ava / Maya / Priya / Liam / Apex members); compared flows to expected behavior; introduced **new requirements mid-build** only when needed (necessity + timebox); directed corrections until UI and API matched the contract |
+
+**Plan and requirements (human-steered)**
+
+- Agent assumptions (stack layout, phase order, “extras” like custom roles/modules, session cap, ports/adapters) were accepted, trimmed, or rewritten in PLAN/SPEC/AGENTS — not left as silent agent defaults.
+- **Initial requirements** stayed the north star (tenant isolation, manager/member pulse, two-org demo, local login, summary, activity without secrets).
+- **Emergent requirements** during work (examples: organization always on login + rate limits; one active survey on create; question fields on create UI; hide disabled modules from the DOM; thank-you / already-completed UX; summary charts) were added because browser QA or correctness needed them, within the same timebox — not a second product.
+- Explicitly **timeboxed out** of the slice: AWS deploy/runtime (design only), survey edit/deactivate API, speculative infra.
+
+Human reviews were not a single sign-off at the end. They were repeated while testing in the browser: create/login as each role, submit responses, read summaries, toggle org modules, create surveys with real questions, and check cross-tenant visibility. Findings drove agent fixes — examples below.
+
+**Browser-driven corrections (human found → agent fixed)**
+
+- Login always requires organization name (no multi-org email oracle); rate limits on every route.
+- Active survey: creating a survey deactivates prior actives; members see the newest active survey.
+- Survey create UI: title **and** 1–3 questions (text + type), not hardcoded questions behind a title-only form.
+- Disabled org modules: omit nav links and routes from the DOM (refresh `/auth/me` on load/focus) instead of showing `FORBIDDEN_MODULE` error pages.
+- Summary charts for completion / rating / yes-no; thank-you and already-completed-this-week member states (smileys / tick-cross answers).
+- Apex activity “All groups” no longer 500 when actors are outside the tenant (platform-admin name fallback).
+- Leftover e2e injection survey titles no longer pollute Summary (active survey only; test cleans up after itself).
+- Surveys created while logged in as Ava land on **System** — tenant managers cannot see them (isolation working as designed; create as Maya/Priya for tenant orgs).
+
+Kept for human judgment throughout (not only “review the diff”): isolation rules (app `orgId` + RLS + `is_org_reader`), session cap, error envelope, activity allowlist, and whether a UI behavior matches the product story.
 
 ### Skills and rules used
 
@@ -149,7 +176,7 @@ Cursor routed work through orchestrators, then loaded only the skills that match
 | Orchestrator | When |
 |---|---|
 | `software-engineering-orchestrator` | API, Prisma, RLS, auth, tests, AWS design |
-| `design-ux-orchestrator` | React SPA: pages, pager, **email/password login**, error fallbacks |
+| `design-ux-orchestrator` | React SPA: pages, pager, **email/password login**, error fallbacks, survey/summary UX |
 
 **Skills**
 
@@ -167,7 +194,7 @@ Cursor routed work through orchestrators, then loaded only the skills that match
 | `dependency-hygiene-global` | No extra packages for pagination or role isolation |
 | `accidental-data-loss-prevention` | Soft-delete users; schema changes land in init while the DB is empty |
 | `frontend-standards` | React + TypeScript: `function` components, kebab-case files, `handle*` / `use*` / `is*` names, typed props, no unused imports |
-| `essential-design-principles` | Novice-first product UI, loading/error/empty states, keyboard-usable pager, module-denied copy stays on-page |
+| `essential-design-principles` | Novice-first product UI, loading/error/empty states, keyboard-usable pager; disabled modules hidden from nav/DOM |
 | `conventional-logical-commits` | Small feat/fix batches |
 | `skills-provenance` | Disclose skills/rules on each change |
 
@@ -187,10 +214,10 @@ There is no skill named `react`. The React/TypeScript bar is `frontend-standards
 
 ### Validation
 
-Implemented and checked after the build:
+Automated checks after the build, plus **human browser QA** that continued through the hardening loop above:
 
 - Unit tests: week helper, pagination, permission subset, password hash, access service (in-memory repo, including role-delete guards), rate-limit window — 25 passed.
-- API e2e: postman, health chesks , 405/TRACE, 422 envelope without stack/SQL, wrong-password 401, mixed-case email login, duplicate org name 409, no public `/auth/users`, cross-org 404, Apex `FORBIDDEN_MODULE`, member cannot create surveys, idempotent submit + 409, manager summary, superset guard, custom-role org isolation, role delete 409/403/404, session-cap revoke, logout revoke, settings bounds, manager cannot patch another org cap, expired session 401, per-org emails + missing organization 422 (unique and shared), rate-limit 429, invalid answer leaves no leftover row, SQL-looking title stored as text, activity has no token/email material — 29 passed.
+- API e2e: health, 405/TRACE, 422 envelope without stack/SQL, wrong-password 401, mixed-case email login, duplicate org name 409, no public `/auth/users`, cross-org 404, Apex `FORBIDDEN_MODULE`, member cannot create surveys, idempotent submit + 409, manager summary, `submittedThisWeek` on active survey, superset guard, custom-role org isolation, role delete 409/403/404, session-cap revoke, logout revoke, settings bounds, manager cannot patch another org cap, expired session 401, per-org emails + missing organization 422, rate-limit 429, invalid answer leaves no leftover row, SQL-looking title stored as text then cleaned up, activity has no token/email material, `/auth/me` returns org modules — e2e suite green when DB is seeded.
 - Newman: health, Liam login + active survey, Maya summary + activity, Maya cannot patch Apex session cap, Priya summary module denied — 0 failed.
-- Browser (localhost:5173): email/password/organization login (field always visible); Liam submit (“Saved for this week.”); Maya summary, roles catalog with custom-role remove, people, settings, activity; Priya summary shows “This module is not enabled…” with Retry and the shell stays up; Ava orgs list with module checkboxes (Apex summary off).
-- Residual observed: JWT is still a permission snapshot; async activity can drop a log on crash; demo secret is local-only.
+- Browser (human, localhost:5173 / Vite): signed in as each seeded actor; walked member submit (thank-you / already completed), manager create survey with custom questions, summary charts, roles/people/settings/activity, Ava module toggles (Summary link disappears when `summary` is off), Apex vs Northwind isolation; reported mismatches until flows matched expected functionality.
+- Residual observed: JWT is still a permission snapshot; async activity can drop a log on crash; demo secret is local-only; surveys created under System stay on System.

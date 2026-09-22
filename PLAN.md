@@ -2,6 +2,8 @@
 
 Implementation plan for this repo. Frozen decisions live in [SPEC.md](SPEC.md). Outcomes and AWS notes live in [SOLUTION.md](SOLUTION.md).
 
+**How this plan was shaped:** the Cursor agent drafted much of the sequence (phases P0→P6), stack choices, and “extras” by filling gaps with reasonable assumptions. The human **edited and steered** the plan: kept it aligned with the **initial requirements**, rejected or deferred speculative scope, and **added requirements during the work** when browser testing or necessity showed a gap — always under **timeboxing** (ship the slice, design-only for AWS, no edit-survey endpoint, etc.). See [SOLUTION.md](SOLUTION.md) § AI workflow for the agent vs human split.
+
 **Status:**
 
 Local run: `git clone` → `npm install` → `npm run setup` → `npm run dev`.
@@ -21,7 +23,7 @@ Weekly pulse surveys per organization with strict tenant isolation, table-driven
 | Manager + Member | Seeded MANAGER + MEMBER; SUPER_ADMIN + custom roles are additive. No ADMIN — managers add other managers; super admin creates orgs |
 | Org data isolation | App `orgId` + RLS; two seeded tenant orgs |
 | Surveys, max 3 questions, rating 1–5 + yes/no | Validation + schema |
-| Manager creates surveys for own org | `POST/GET /surveys`. Manage in this slice = create + list + `isActive` on create. No edit/deactivate endpoint (known gap) |
+| Manager creates surveys for own org | `POST/GET /surveys`. Create sets `isActive` and deactivates prior actives in the org (one active at a time). No separate edit/deactivate endpoint |
 | Member: one response per active week | Unique `(surveyId, userId, weekStart)` + idempotent replay |
 | Weekly summary | `GET /surveys/:id/summary`; ISO week (Monday) |
 | Seed ≥2 orgs, users per role | System + Northwind Retail + Apex Mining |

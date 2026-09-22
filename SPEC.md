@@ -42,6 +42,7 @@ Protected (token then permission):
 | Method | Path | Permission |
 |---|---|---|
 | POST | /auth/logout | authenticated |
+| GET | /auth/me | authenticated |
 | GET | /permissions | authenticated |
 | GET | /roles | roles:read |
 | POST | /roles | roles:create |
@@ -62,13 +63,15 @@ Protected (token then permission):
 
 List endpoints return `{ items, page, limit, total }`. Query `page` (min 1, default 1) and `limit` (1–100, default 20).
 
-`POST /auth/login` `{ email, password, organization }` → `{ token, expiresAt, user, org }`. `organization` is the organization **name** (case-insensitive) and is **always required**. The login form always shows the field. Missing or blank → 422 `VALIDATION_FAILED` (schema, not an email-existence signal). Wrong email, password, or org name → 401 `Invalid credentials` (no email oracle, no multi-org oracle). Password hashes are never returned. Emails are stored lowercase.
+`POST /auth/login` `{ email, password, organization }` → `{ token, expiresAt, user, org }`. `organization` is the organization **name** (case-insensitive) and is **always required**. The login form always shows the field. Missing or blank → 422 `VALIDATION_FAILED` (schema, not an email-existence signal). Wrong email, password, or org name → 401 `Invalid credentials` (no email oracle, no multi-org oracle). Password hashes are never returned. Emails are stored lowercase. `org.modules` is the list of enabled module keys for that organization. `GET /auth/me` returns the same `user` + `org` shape for the current token (used to hydrate the UI without re-login). The web app only mounts nav links and routes when both the permission and the matching org module are present; disabled modules are omitted from the DOM rather than shown as `FORBIDDEN_MODULE` errors.
 
 `POST /users` `{ name, email, password, roleId, orgId? }`. Password min 8; stored as scrypt; never returned.
 
 `DELETE /roles/:id` removes a custom role in the actor's organization. System roles → 403. Any remaining user (including soft-deleted) → 409. Cross-org ids → 404.
 
-`POST /surveys` `{ title, questions: [{ text, type, position }] }` max 3 questions.
+`POST /surveys` `{ title, questions: [{ text, type, position }] }` max 3 questions. Creating a survey deactivates any previously active survey in the same org (one active survey per org).
+
+`GET /surveys/active` → newest active survey for the org plus `submittedThisWeek` (boolean) and `weekStart` (ISO date). When `submittedThisWeek` is true the member has already answered this ISO week for that survey.
 
 `POST /surveys/:id/responses` `{ answers: [{ questionId, ratingValue?, yesNoValue? }] }`. Same week + same answers → 200 existing. Same week + different answers → 409.
 
