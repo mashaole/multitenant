@@ -11,6 +11,7 @@ CREATE TABLE "organizations" (
     CONSTRAINT "organizations_pkey" PRIMARY KEY ("id"),
     CONSTRAINT "organizations_max_sessions_check" CHECK ("maxSessionsPerUser" BETWEEN 1 AND 20)
 );
+CREATE UNIQUE INDEX "organizations_name_lower_key" ON "organizations" (lower(name));
 
 CREATE TABLE "modules" (
     "id" UUID NOT NULL,
@@ -56,6 +57,7 @@ CREATE TABLE "users" (
     "roleId" UUID NOT NULL,
     "name" TEXT NOT NULL,
     "email" TEXT NOT NULL,
+    "passwordHash" TEXT NOT NULL,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
     "updatedBy" UUID,
@@ -64,7 +66,9 @@ CREATE TABLE "users" (
     CONSTRAINT "users_pkey" PRIMARY KEY ("id")
 );
 CREATE INDEX "users_orgId_idx" ON "users"("orgId");
-CREATE UNIQUE INDEX "users_email_active_key" ON "users"("email") WHERE "deletedAt" IS NULL;
+CREATE UNIQUE INDEX "users_org_email_active_key"
+  ON "users" ("orgId", lower(email))
+  WHERE "deletedAt" IS NULL;
 
 CREATE TABLE "sessions" (
     "id" UUID NOT NULL,

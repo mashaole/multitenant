@@ -14,6 +14,7 @@ import { paginate, toPage } from '../../shared/http/pagination';
 import { ACTIVITY_EMITTER, IActivityEmitter } from '../../shared/ports/activity.port';
 import { CLOCK, IClock } from '../../shared/ports/clock.port';
 import { PASSWORD_HASHER, IPasswordHasher } from '../../shared/ports/password-hasher.port';
+import { normalizeEmail, normalizeOrgName } from '../../shared/utils/identity';
 
 @Injectable()
 export class AdminService {
@@ -57,24 +58,43 @@ export class AdminService {
   }
 
   async createOrg(auth: TokenClaims, name: string, maxSessionsPerUser = 1) {
-    const org = await this.prisma.$transaction(async (tx) => {
-      const created = await tx.organization.create({
-        data: { name, maxSessionsPerUser },
+    const orgName = normalizeOrgName(name);
+    if (orgName.length === 0) {
+      throw new AppError(
+        ERROR_CODES.VALIDATION_FAILED,
+        'Organization name is required',
+        422,
+      );
+    }
+    try {
+      const org = await this.prisma.$transaction(async (tx) => {
+        const created = await tx.organization.create({
+          data: { name: orgName, maxSessionsPerUser },
+        });
+        const modules = await tx.module.findMany();
+        await tx.orgModule.createMany({
+          data: modules.map((m) => ({ orgId: created.id, moduleId: m.id })),
+        });
+        return created;
       });
-      const modules = await tx.module.findMany();
-      await tx.orgModule.createMany({
-        data: modules.map((m) => ({ orgId: created.id, moduleId: m.id })),
+      this.activity.emit({
+        orgId: org.id,
+        userId: auth.sub,
+        group: 'admin',
+        action: 'org.created',
+        metadata: { entityType: 'organization', entityId: org.id, name: org.name },
       });
-      return created;
-    });
-    this.activity.emit({
-      orgId: org.id,
-      userId: auth.sub,
-      group: 'admin',
-      action: 'org.created',
-      metadata: { entityType: 'organization', entityId: org.id, name: org.name },
-    });
-    return org;
+      return org;
+    } catch (err) {
+      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
+        throw new AppError(
+          ERROR_CODES.CONFLICT_DUPLICATE,
+          'An organization with that name already exists',
+          409,
+        );
+      }
+      throw err;
+    }
   }
 
   async putModules(auth: TokenClaims, orgId: string, moduleKeys: string[]) {
@@ -200,7 +220,7 @@ export class AdminService {
       orgId,
       roleId: input.roleId,
       name: input.name,
-      email: input.email,
+      email: normalizeEmail(input.email),
       passwordHash: await this.passwords.hash(input.password),
       updatedBy: auth.sub,
     };

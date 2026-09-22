@@ -2,6 +2,7 @@ import { IsArray, IsInt, IsOptional, IsString, IsUUID, Max, MaxLength, Min, MinL
 
 export class CreateOrgDto {
   @IsString()
+  @MinLength(1)
   @MaxLength(120)
   name!: string;
 

@@ -42,4 +42,9 @@ export const IDS = {
     owen: 'owen@apex.local',
     elise: 'elise@apex.local',
   },
+  orgName: {
+    system: 'System',
+    northwind: 'Northwind Retail',
+    apex: 'Apex Mining',
+  },
 };

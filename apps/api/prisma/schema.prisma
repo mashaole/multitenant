@@ -14,6 +14,7 @@ enum QuestionType {
 
 model Organization {
   id                  String   @id @default(uuid()) @db.Uuid
+  /// Unique ignoring case (SQL: organizations_name_lower_key).
   name                String
   isSystem            Boolean  @default(false)
   maxSessionsPerUser  Int      @default(1)
@@ -89,7 +90,8 @@ model User {
   orgId      String    @db.Uuid
   roleId     String    @db.Uuid
   name       String
-  /// Unique with orgId among active users (SQL: users_org_email_active_key).
+  /// Unique with orgId among active users, case-insensitive
+  /// (SQL: users_org_email_active_key on lower(email)).
   email        String
   passwordHash String
   createdAt  DateTime  @default(now())
