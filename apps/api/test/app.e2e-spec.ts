@@ -136,6 +136,14 @@ describe('pulse api (e2e)', () => {
 
   it('apex manager is denied summary module', async () => {
     const token = await login(IDS.user.priya);
+    const session = await request(app.getHttpServer())
+      .get('/auth/me')
+      .set('Authorization', `Bearer ${token}`)
+      .expect(200);
+    expect(session.body.org.modules).not.toContain('summary');
+    expect(session.body.org.modules).toEqual(
+      expect.arrayContaining(['surveys', 'responses', 'activity']),
+    );
     const res = await request(app.getHttpServer())
       .get(`/surveys/${IDS.survey.apex}/summary`)
       .set('Authorization', `Bearer ${token}`)
@@ -156,7 +164,54 @@ describe('pulse api (e2e)', () => {
     expect(res.body.error.code).toBe('FORBIDDEN_PERMISSION');
   });
 
+  it('active survey reports whether this week is already submitted', async () => {
+    const nora = await login(IDS.user.nora);
+    const noraActive = await request(app.getHttpServer())
+      .get('/surveys/active')
+      .set('Authorization', `Bearer ${nora}`)
+      .expect(200);
+    expect(noraActive.body.submittedThisWeek).toBe(true);
+    expect(noraActive.body.weekStart).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+
+    const prisma = app.get(PrismaService);
+    await prisma.answer.deleteMany({
+      where: { response: { userId: IDS.user.elise } },
+    });
+    await prisma.response.deleteMany({
+      where: { userId: IDS.user.elise },
+    });
+
+    const elise = await login(IDS.user.elise);
+    const before = await request(app.getHttpServer())
+      .get('/surveys/active')
+      .set('Authorization', `Bearer ${elise}`)
+      .expect(200);
+    expect(before.body.submittedThisWeek).toBe(false);
+    await request(app.getHttpServer())
+      .post(`/surveys/${IDS.survey.apex}/responses`)
+      .set('Authorization', `Bearer ${elise}`)
+      .send({
+        answers: [
+          { questionId: IDS.question.ap1, ratingValue: 4 },
+          { questionId: IDS.question.ap2, yesNoValue: true },
+        ],
+      })
+      .expect(201);
+    const after = await request(app.getHttpServer())
+      .get('/surveys/active')
+      .set('Authorization', `Bearer ${elise}`)
+      .expect(200);
+    expect(after.body.submittedThisWeek).toBe(true);
+  });
+
   it('idempotent submit and conflict', async () => {
+    const prisma = app.get(PrismaService);
+    await prisma.answer.deleteMany({
+      where: { response: { userId: IDS.user.liam } },
+    });
+    await prisma.response.deleteMany({
+      where: { userId: IDS.user.liam },
+    });
     const token = await login(IDS.user.liam);
     const payload = {
       answers: [
@@ -349,6 +404,13 @@ describe('pulse api (e2e)', () => {
   });
 
   it('invalid answer rolls back the response row', async () => {
+    const prisma = app.get(PrismaService);
+    await prisma.answer.deleteMany({
+      where: { response: { userId: IDS.user.elise } },
+    });
+    await prisma.response.deleteMany({
+      where: { userId: IDS.user.elise },
+    });
     const token = await login(IDS.user.elise);
     const bogus = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
     await request(app.getHttpServer())
@@ -551,9 +613,21 @@ describe('pulse api (e2e)', () => {
       })
       .expect(201);
     expect(res.body.title).toContain('DROP TABLE');
-    await request(app.getHttpServer())
-      .get('/health')
-      .expect(200);
+    await request(app.getHttpServer()).get('/health').expect(200);
+
+    const prisma = app.get(PrismaService);
+    await prisma.$transaction(async (tx) => {
+      await tx.answer.deleteMany({
+        where: { question: { surveyId: res.body.id } },
+      });
+      await tx.response.deleteMany({ where: { surveyId: res.body.id } });
+      await tx.question.deleteMany({ where: { surveyId: res.body.id } });
+      await tx.survey.delete({ where: { id: res.body.id } });
+      await tx.survey.updateMany({
+        where: { orgId: IDS.org.northwind, id: IDS.survey.northwind },
+        data: { isActive: true },
+      });
+    });
   });
 
   it('drains activity without secrets', async () => {
@@ -567,6 +641,40 @@ describe('pulse api (e2e)', () => {
     expect(raw).not.toMatch(/tokenHash|Bearer |@northwind/);
     expect(Array.isArray(res.body.items)).toBe(true);
     expect(res.body.limit).toBeLessThanOrEqual(100);
+  });
+
+  it('lists all Apex activity even when actors are outside the org', async () => {
+    await drain();
+    const ava = await login(IDS.user.ava);
+    // Force a real module change so Ava's cross-org grant emits activity.
+    await request(app.getHttpServer())
+      .put(`/orgs/${IDS.org.apex}/modules`)
+      .set('Authorization', `Bearer ${ava}`)
+      .send({ moduleKeys: ['surveys', 'responses', 'activity', 'summary'] })
+      .expect(200);
+    await request(app.getHttpServer())
+      .put(`/orgs/${IDS.org.apex}/modules`)
+      .set('Authorization', `Bearer ${ava}`)
+      .send({ moduleKeys: ['surveys', 'responses', 'activity'] })
+      .expect(200);
+    await drain();
+    const priya = await login(IDS.user.priya);
+    const res = await request(app.getHttpServer())
+      .get('/activity')
+      .set('Authorization', `Bearer ${priya}`)
+      .expect(200);
+    expect(res.body.total).toBeGreaterThan(0);
+    expect(
+      res.body.items.every(
+        (item: { user: { name: string } }) => typeof item.user?.name === 'string',
+      ),
+    ).toBe(true);
+    const admin = await request(app.getHttpServer())
+      .get('/activity?group=admin')
+      .set('Authorization', `Bearer ${priya}`)
+      .expect(200);
+    expect(admin.body.items.length).toBeGreaterThan(0);
+    expect(admin.body.items[0].user.name).toBe('Platform admin');
   });
 
   it('rejects out-of-range list limits and pages results', async () => {
