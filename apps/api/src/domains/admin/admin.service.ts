@@ -1,8 +1,13 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
-import { PrismaService } from '../../shared/prisma/prisma.service';
+import { AppPrismaService, PrismaService } from '../../shared/prisma/prisma.service';
+import { TenantTx, withTenant } from '../../shared/tenant/with-tenant';
 import { TokenClaims } from '../../shared/ports/token-signer.port';
-import { assertPermissionSubset, canManageTenants } from '../../shared/access-control/permissions';
+import {
+  assertPermissionSubset,
+  canManageTenants,
+  isOrgReader,
+} from '../../shared/access-control/permissions';
 import { AppError, ERROR_CODES } from '../../shared/http/error-codes';
 import { ACTIVITY_EMITTER, IActivityEmitter } from '../../shared/ports/activity.port';
 import { CLOCK, IClock } from '../../shared/ports/clock.port';
@@ -11,9 +16,25 @@ import { CLOCK, IClock } from '../../shared/ports/clock.port';
 export class AdminService {
   constructor(
     private readonly prisma: PrismaService,
+    private readonly appPrisma: AppPrismaService,
     @Inject(ACTIVITY_EMITTER) private readonly activity: IActivityEmitter,
     @Inject(CLOCK) private readonly clock: IClock,
   ) {}
+
+  private tenantWork<T>(
+    auth: TokenClaims,
+    fn: (tx: TenantTx) => Promise<T>,
+  ): Promise<T> {
+    return withTenant(
+      this.appPrisma,
+      {
+        orgId: auth.orgId,
+        userId: auth.sub,
+        isOrgReader: isOrgReader(auth.permissions),
+      },
+      fn,
+    );
+  }
 
   listOrgs() {
     return this.prisma.organization.findMany({
@@ -80,15 +101,15 @@ export class AdminService {
     if (!canManageTenants(auth.permissions) && auth.orgId !== orgId) {
       throw new AppError(ERROR_CODES.FORBIDDEN_PERMISSION, 'You can only update your own organization', 403);
     }
-    const org = await this.prisma.organization.findUnique({ where: { id: orgId } });
-    if (!org) {
-      throw new AppError(ERROR_CODES.NOT_FOUND, 'Organization not found', 404);
-    }
-    if (org.maxSessionsPerUser === maxSessionsPerUser) {
-      return org;
-    }
-    const now = this.clock.now();
-    const updated = await this.prisma.$transaction(async (tx) => {
+    const run = async (tx: TenantTx | PrismaService) => {
+      const org = await tx.organization.findUnique({ where: { id: orgId } });
+      if (!org) {
+        throw new AppError(ERROR_CODES.NOT_FOUND, 'Organization not found', 404);
+      }
+      if (org.maxSessionsPerUser === maxSessionsPerUser) {
+        return { unchanged: true as const, org };
+      }
+      const now = this.clock.now();
       const next = await tx.organization.update({
         where: { id: orgId },
         data: { maxSessionsPerUser },
@@ -110,16 +131,25 @@ export class AdminService {
           });
         }
       }
-      return next;
-    });
-    this.activity.emit({
-      orgId,
-      userId: auth.sub,
-      group: 'admin',
-      action: 'org.settings',
-      metadata: { entityType: 'organization', entityId: orgId, name: String(maxSessionsPerUser) },
-    });
-    return updated;
+      return { unchanged: false as const, org: next };
+    };
+    const result = canManageTenants(auth.permissions)
+      ? await this.prisma.$transaction((tx) => run(tx))
+      : await this.tenantWork(auth, (tx) => run(tx));
+    if (!result.unchanged) {
+      this.activity.emit({
+        orgId,
+        userId: auth.sub,
+        group: 'admin',
+        action: 'org.settings',
+        metadata: {
+          entityType: 'organization',
+          entityId: orgId,
+          name: String(maxSessionsPerUser),
+        },
+      });
+    }
+    return result.org;
   }
 
   async createUser(
@@ -137,6 +167,13 @@ export class AdminService {
     if (!role) {
       throw new AppError(ERROR_CODES.NOT_FOUND, 'Role not found', 404);
     }
+    if (
+      !canManageTenants(auth.permissions) &&
+      role.orgId &&
+      role.orgId !== auth.orgId
+    ) {
+      throw new AppError(ERROR_CODES.NOT_FOUND, 'Role not found', 404);
+    }
     const keys = role.perms.map((p) => p.permission.key);
     if (!assertPermissionSubset(auth.permissions, keys)) {
       throw new AppError(
@@ -145,16 +182,17 @@ export class AdminService {
         403,
       );
     }
+    const data = {
+      orgId,
+      roleId: input.roleId,
+      name: input.name,
+      email: input.email,
+      updatedBy: auth.sub,
+    };
     try {
-      const user = await this.prisma.user.create({
-        data: {
-          orgId,
-          roleId: input.roleId,
-          name: input.name,
-          email: input.email,
-          updatedBy: auth.sub,
-        },
-      });
+      const user = canManageTenants(auth.permissions)
+        ? await this.prisma.user.create({ data })
+        : await this.tenantWork(auth, (tx) => tx.user.create({ data }));
       this.activity.emit({
         orgId,
         userId: auth.sub,
@@ -172,18 +210,15 @@ export class AdminService {
   }
 
   async softDeleteUser(auth: TokenClaims, userId: string) {
-    const existing = await this.prisma.user.findUnique({ where: { id: userId } });
-    if (!existing) {
-      throw new AppError(ERROR_CODES.NOT_FOUND, 'User not found', 404);
-    }
-    if (!canManageTenants(auth.permissions) && existing.orgId !== auth.orgId) {
-      throw new AppError(ERROR_CODES.NOT_FOUND, 'User not found', 404);
-    }
-    if (existing.deletedAt) {
-      return { ok: true, unchanged: true };
-    }
-    const now = this.clock.now();
-    await this.prisma.$transaction(async (tx) => {
+    const run = async (tx: TenantTx | PrismaService) => {
+      const existing = await tx.user.findUnique({ where: { id: userId } });
+      if (!existing) {
+        throw new AppError(ERROR_CODES.NOT_FOUND, 'User not found', 404);
+      }
+      if (existing.deletedAt) {
+        return { ok: true, unchanged: true, existing };
+      }
+      const now = this.clock.now();
       await tx.user.update({
         where: { id: userId },
         data: { deletedAt: now, updatedBy: auth.sub },
@@ -192,33 +227,50 @@ export class AdminService {
         where: { userId, revokedAt: null },
         data: { revokedAt: now },
       });
-    });
-    this.activity.emit({
-      orgId: existing.orgId,
-      userId: auth.sub,
-      group: 'admin',
-      action: 'user.deleted',
-      metadata: { entityType: 'user', entityId: userId, name: existing.name },
-    });
-    return { ok: true, unchanged: false };
+      return { ok: true, unchanged: false, existing };
+    };
+    const result = canManageTenants(auth.permissions)
+      ? await this.prisma.$transaction((tx) => run(tx))
+      : await this.tenantWork(auth, (tx) => run(tx));
+    if (!result.unchanged) {
+      this.activity.emit({
+        orgId: result.existing.orgId,
+        userId: auth.sub,
+        group: 'admin',
+        action: 'user.deleted',
+        metadata: {
+          entityType: 'user',
+          entityId: userId,
+          name: result.existing.name,
+        },
+      });
+    }
+    return { ok: true, unchanged: result.unchanged };
   }
 
   listUsers(auth: TokenClaims) {
-    const where = canManageTenants(auth.permissions)
-      ? { deletedAt: null }
-      : { deletedAt: null, orgId: auth.orgId };
-    return this.prisma.user.findMany({
-      where,
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        lastLogin: true,
-        createdAt: true,
-        org: { select: { id: true, name: true } },
-        role: { select: { name: true } },
-      },
-      orderBy: { name: 'asc' },
-    });
+    const select = {
+      id: true,
+      name: true,
+      email: true,
+      lastLogin: true,
+      createdAt: true,
+      org: { select: { id: true, name: true } },
+      role: { select: { name: true } },
+    } as const;
+    if (canManageTenants(auth.permissions)) {
+      return this.prisma.user.findMany({
+        where: { deletedAt: null },
+        select,
+        orderBy: { name: 'asc' },
+      });
+    }
+    return this.tenantWork(auth, (tx) =>
+      tx.user.findMany({
+        where: { deletedAt: null, orgId: auth.orgId },
+        select,
+        orderBy: { name: 'asc' },
+      }),
+    );
   }
 }
