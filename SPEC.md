@@ -7,7 +7,7 @@ Frozen before implementation. Code follows this contract.
 | Actor | Org | Typical permissions |
 |---|---|---|
 | SUPER_ADMIN | System | all — create orgs, grant modules, add managers |
-| MANAGER | Tenant | surveys, summary, activity, roles, users:create/delete (including other managers), orgs:update |
+| MANAGER | Tenant | surveys, responses:submit, summary, activity, roles, users:create/delete (including members and other managers), orgs:update |
 | MEMBER | Tenant | responses:submit, surveys:read |
 | Custom role | Tenant | subset of the actor's permissions |
 

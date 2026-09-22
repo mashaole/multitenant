@@ -88,6 +88,7 @@ async function main(): Promise<void> {
         create: keys([
           'surveys:create',
           'surveys:read',
+          'responses:submit',
           'summary:read',
           'activity:read',
           'roles:create',

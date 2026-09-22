@@ -31,7 +31,7 @@ Pick a user on `/login`. Default session cap is **1** per org (a second login as
 | Name | Role | Org | Notes |
 |---|---|---|---|
 | Ava Stone | SUPER_ADMIN | System | Create orgs, grant modules, add managers |
-| Maya Chen | MANAGER | Northwind Retail | Surveys, summary, roles, people (including managers) |
+| Maya Chen | MANAGER | Northwind Retail | Surveys, submit, summary, roles, people (including managers) |
 | Liam Park | MEMBER | Northwind Retail | Submit pulse |
 | Nora Vale | MEMBER | Northwind Retail | Submit pulse |
 | Jordan Reed | Team Lead | Northwind Retail | Custom role with `summary:read` |
